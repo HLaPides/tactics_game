@@ -121,6 +121,9 @@ OBJECTS :=
 GENERATED += $(OBJDIR)/main.o
 OBJECTS += $(OBJDIR)/main.o
 
+GENERATED += $(OBJDIR)/map.o
+OBJECTS += $(OBJDIR)/map.o
+
 # Rules
 # #############################################
 
@@ -183,7 +186,11 @@ endif
 # File Rules
 # #############################################
 
-$(OBJDIR)/main.o: src/main.c
+$(OBJDIR)/main.o: src/main.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/map.o: src/map.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
