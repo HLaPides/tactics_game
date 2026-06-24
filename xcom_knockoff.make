@@ -127,6 +127,9 @@ OBJECTS += $(OBJDIR)/map.o
 GENERATED += $(OBJDIR)/unit.o
 OBJECTS += $(OBJDIR)/unit.o
 
+GENERATED += $(OBJDIR)/enemy.o
+OBJECTS += $(OBJDIR)/enemy.o
+
 # Rules
 # #############################################
 
@@ -200,6 +203,10 @@ $(OBJDIR)/map.o: src/map.cpp
 $(OBJDIR)/unit.o: src/units/unit.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/enemy.o: src/units/enemy.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 	
 -include $(OBJECTS:%.o=%.d)
 ifneq (,$(PCH))

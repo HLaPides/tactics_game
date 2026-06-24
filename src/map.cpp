@@ -29,3 +29,11 @@ int map::get_y_dimension() {
     return y_dimension;
 }
 
+int map::getCols() { 
+    return x_dimension / tile_size; 
+}
+
+int map::getRows() { 
+    return y_dimension / tile_size; 
+}
+
