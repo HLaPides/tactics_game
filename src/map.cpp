@@ -13,10 +13,19 @@ void map::draw_map() {
     for (int row = 0; row<rows; row++) {
         for (int col = 0; col<cols; col++) {
             DrawRectangleLines(col*tile_size, row*tile_size, tile_size, tile_size, BLACK);
+        }
     }
 }
 
 int map::get_tile_size() {
     return tile_size;
 }
+
+int map::get_x_dimension() {
+    return x_dimension;
 }
+
+int map::get_y_dimension() {
+    return y_dimension;
+}
+
