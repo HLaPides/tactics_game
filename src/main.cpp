@@ -2,86 +2,15 @@
 #include "map.h"
 #include "units/unit.h"
 #include "units/enemy.h"
+#include "hud.h"
 #include "resource_dir.h"
 #include <algorithm>
 #include <vector>
 
-enum GameState  { PLAYER_TURN, ENEMY_TURN };
-enum ActionMode { MODE_NONE, MODE_SHOOT, MODE_MELEE };
-
-// --- action bar layout constants ---
-const int BAR_HEIGHT    = 80;
-const int BTN_W         = 80;
-const int BTN_H         = 60;
-const int BTN_Y_OFFSET  = 10;
-
-void draw_action_bar(int screen_w, int screen_h, int player_hp, int player_max_hp,
-                     int player_actions, GameState state, ActionMode mode) {
-    int bar_y = screen_h - BAR_HEIGHT;
-
-    // bar background
-    DrawRectangle(0, bar_y, screen_w, BAR_HEIGHT, ColorFromNormalized({0.13f, 0.13f, 0.13f, 1.0f}));
-    DrawLine(0, bar_y, screen_w, bar_y, GRAY);
-
-    // --- unit info (left) ---
-    DrawText("Bosun", 12, bar_y + 10, 16, WHITE);
-
-    // action pips
-    for (int i = 0; i < 2; i++) {
-        Color pip = i < player_actions ? SKYBLUE : DARKGRAY;
-        DrawCircle(12 + i * 16, bar_y + 36, 5, pip);
-    }
-
-    // HP bar
-    DrawText("HP", 12, bar_y + 50, 12, GRAY);
-    DrawRectangle(30, bar_y + 52, 60, 8, DARKGRAY);
-    float hp_frac = (float)player_hp / player_max_hp;
-    Color hp_color = hp_frac > 0.5f ? GREEN : (hp_frac > 0.25f ? ORANGE : RED);
-    DrawRectangle(30, bar_y + 52, (int)(60 * hp_frac), 8, hp_color);
-    DrawText(TextFormat("%d/%d", player_hp, player_max_hp), 96, bar_y + 50, 12, GRAY);
-
-    // divider
-    DrawLine(130, bar_y + 8, 130, bar_y + BAR_HEIGHT - 8, GRAY);
-
-    // --- action buttons (middle) ---
-    const char* btn_labels[]  = { "Shoot",  "Melee"  };
-    ActionMode  btn_modes[]   = { MODE_SHOOT, MODE_MELEE };
-    int btn_start_x = 148;
-
-    for (int i = 0; i < 2; i++) {
-        int bx = btn_start_x + i * (BTN_W + 8);
-        int by = bar_y + BTN_Y_OFFSET;
-
-        bool active   = (mode == btn_modes[i]);
-        bool no_actions = (player_actions <= 0);
-
-        Color border = active ? SKYBLUE : (no_actions ? DARKGRAY : GRAY);
-        Color label  = active ? SKYBLUE : (no_actions ? DARKGRAY : WHITE);
-        Color bg     = active ? ColorFromNormalized({0.1f, 0.3f, 0.5f, 1.0f})
-                              : ColorFromNormalized({0.18f, 0.18f, 0.18f, 1.0f});
-
-        DrawRectangle(bx, by, BTN_W, BTN_H, bg);
-        DrawRectangleLines(bx, by, BTN_W, BTN_H, border);
-        DrawText(btn_labels[i], bx + BTN_W/2 - MeasureText(btn_labels[i], 14)/2, by + 10, 14, label);
-        DrawText("1 action", bx + BTN_W/2 - MeasureText("1 action", 10)/2, by + 44, 10, DARKGRAY);
-    }
-
-    // divider
-    DrawLine(screen_w - 120, bar_y + 8, screen_w - 120, bar_y + BAR_HEIGHT - 8, GRAY);
-
-    // --- turn info + end turn (right) ---
-    const char* turn_label = state == PLAYER_TURN ? "Player turn" : "Enemy turn";
-    DrawText(turn_label, screen_w - 112, bar_y + 10, 13, GRAY);
-
-    Color end_col = (state == PLAYER_TURN) ? WHITE : DARKGRAY;
-    DrawRectangleLines(screen_w - 112, bar_y + 30, 100, 28, end_col);
-    DrawText("End turn", screen_w - 112 + 10, bar_y + 37, 13, end_col);
-}
-
 int main() {
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
     const int SCREEN_W = 640;
-    const int SCREEN_H = 640;
+    const int SCREEN_H = 720;
     InitWindow(SCREEN_W, SCREEN_H, "Xcom Knockoff");
 
     map game_map = map(640, 640, 64);
@@ -89,70 +18,54 @@ int main() {
     int cols      = game_map.getCols();
     int rows      = game_map.getRows();
 
-    unit player   = unit(1, 2, 3, 5);
-
-    // store enemies in a vector so dead ones can be skipped easily
+    //                        x  y  mv hp  sr  sd  md
+    unit player = unit       (1, 2,  3, 10,  6,  2,  3);
     std::vector<enemy> enemies;
-    enemies.push_back(enemy(7, 5, 2, 5));
-    enemies.push_back(enemy(6, 2, 2, 5));
+    enemies.push_back(enemy  (7, 5,  2, 5,  3,  1,  1));
+    enemies.push_back(enemy  (6, 2,  2, 5,  3,  1,  1));
 
-    GameState  state = PLAYER_TURN;
-    ActionMode mode  = MODE_NONE;
+    GameState  state        = PLAYER_TURN;
+    ActionMode mode         = MODE_NONE;
+    hud        game_hud     = hud(SCREEN_W, SCREEN_H);
 
-    const int SHOOT_DAMAGE = 1;
-    const int SHOOT_RANGE  = 6;  // in tiles, Chebyshev
-    const int MELEE_RANGE  = 1;
+    int         enemy_index = 0;
+    float       enemy_timer = 0.0f;
+    const float ENEMY_DELAY = 0.4f;
 
     while (!WindowShouldClose()) {
+
+        float dt           = GetFrameTime();
+        Vector2 mouse      = GetMousePosition();
+        int mx             = (int)(mouse.x / tile_size);
+        int my             = (int)(mouse.y / tile_size);
+        bool mouse_on_grid = mouse.y < 640;
 
         // --- INPUT ---
         if (state == PLAYER_TURN) {
 
-            Vector2 mouse = GetMousePosition();
-            int mx = (int)(mouse.x / tile_size);
-            int my = (int)(mouse.y / tile_size);
-            bool mouse_on_grid = mouse.y < (SCREEN_H - BAR_HEIGHT);
-
-            // button clicks
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !mouse_on_grid) {
-                int bar_y     = SCREEN_H - BAR_HEIGHT;
-                int btn_start = 148;
-
-                // shoot button
-                if (mouse.x >= btn_start && mouse.x < btn_start + BTN_W &&
-                    mouse.y >= bar_y + BTN_Y_OFFSET &&
-                    mouse.y < bar_y + BTN_Y_OFFSET + BTN_H &&
-                    player.get_actions() > 0) {
+                if (game_hud.clicked_shoot(mouse) && player.get_actions() > 0)
                     mode = (mode == MODE_SHOOT) ? MODE_NONE : MODE_SHOOT;
-                }
 
-                // melee button
-                int bx2 = btn_start + BTN_W + 8;
-                if (mouse.x >= bx2 && mouse.x < bx2 + BTN_W &&
-                    mouse.y >= bar_y + BTN_Y_OFFSET &&
-                    mouse.y < bar_y + BTN_Y_OFFSET + BTN_H &&
-                    player.get_actions() > 0) {
+                if (game_hud.clicked_melee(mouse) && player.get_actions() > 0)
                     mode = (mode == MODE_MELEE) ? MODE_NONE : MODE_MELEE;
-                }
 
-                // end turn button
-                int end_x = SCREEN_W - 112;
-                if (mouse.x >= end_x && mouse.x < end_x + 100 &&
-                    mouse.y >= bar_y + 30 && mouse.y < bar_y + 58) {
-                    mode  = MODE_NONE;
-                    state = ENEMY_TURN;
+                if (game_hud.clicked_end_turn(mouse)) {
+                    mode        = MODE_NONE;
+                    state       = ENEMY_TURN;
+                    enemy_index = 0;
+                    enemy_timer = 0.0f;
                 }
             }
 
-            // grid clicks
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && mouse_on_grid) {
                 if (mode == MODE_SHOOT) {
                     for (auto& e : enemies) {
                         if (!e.is_alive()) continue;
                         int dist = std::max(abs(mx - player.get_x_pos()),
                                             abs(my - player.get_y_pos()));
-                        if (e.get_x_pos() == mx && e.get_y_pos() == my && dist <= SHOOT_RANGE) {
-                            e.take_damage(SHOOT_DAMAGE);
+                        if (e.get_x_pos() == mx && e.get_y_pos() == my && dist <= player.get_shoot_range()) {
+                            e.take_damage(player.get_shoot_damage());
                             player.use_action();
                             mode = MODE_NONE;
                             break;
@@ -163,45 +76,69 @@ int main() {
                         if (!e.is_alive()) continue;
                         int dist = std::max(abs(mx - player.get_x_pos()),
                                             abs(my - player.get_y_pos()));
-                        if (e.get_x_pos() == mx && e.get_y_pos() == my && dist <= MELEE_RANGE) {
-                            e.take_damage(2);  // melee hits harder
+                        if (e.get_x_pos() == mx && e.get_y_pos() == my && dist <= 1) {
+                            e.take_damage(player.get_melee_damage());
                             player.use_action();
                             mode = MODE_NONE;
                             break;
                         }
                     }
                 } else {
-                    // normal move
-                    int dist = std::max(abs(mx - player.get_x_pos()),
-                                        abs(my - player.get_y_pos()));
-                    if (dist <= player.get_movement() && player.get_actions() > 0) {
+                    int dist          = std::max(abs(mx - player.get_x_pos()),
+                                                 abs(my - player.get_y_pos()));
+                    bool tile_blocked = false;
+                    for (auto& e : enemies) {
+                        if (e.is_alive() && e.get_x_pos() == mx && e.get_y_pos() == my) {
+                            tile_blocked = true;
+                            break;
+                        }
+                    }
+                    if (dist <= player.get_movement() && player.get_actions() > 0 && !tile_blocked) {
                         player.set_position(mx, my);
                         player.use_action();
                     }
                 }
             }
 
-            // cancel targeting with right-click or Escape
-            if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || IsKeyPressed(KEY_ESCAPE)) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || IsKeyPressed(KEY_ESCAPE))
                 mode = MODE_NONE;
+
+            if (player.get_actions() <= 0 || IsKeyPressed(KEY_SPACE)) {
+                mode        = MODE_NONE;
+                state       = ENEMY_TURN;
+                enemy_index = 0;
+                enemy_timer = 0.0f;
             }
 
-            // auto end turn when out of actions
-            if (player.get_actions() <= 0) {
-                mode  = MODE_NONE;
-                state = ENEMY_TURN;
-            }
-
-            // SPACE to end turn manually
-            if (IsKeyPressed(KEY_SPACE)) {
-                mode  = MODE_NONE;
-                state = ENEMY_TURN;
+            // player death — freeze game, game over screen later
+            if (!player.is_alive()) {
+                mode        = MODE_NONE;
+                state       = ENEMY_TURN;
+                enemy_index = (int)enemies.size();
             }
         }
 
+        // enemy turn — one enemy acts per delay tick
         if (state == ENEMY_TURN) {
-            player.reset_actions();
-            state = PLAYER_TURN;
+            enemy_timer += dt;
+            if (enemy_timer >= ENEMY_DELAY) {
+                enemy_timer = 0.0f;
+
+                while (enemy_index < (int)enemies.size() && !enemies[enemy_index].is_alive())
+                    enemy_index++;
+
+                if (enemy_index < (int)enemies.size()) {
+                    enemies[enemy_index].act(player, enemies);
+                    enemy_index++;
+                } else {
+                    // all enemies have acted
+                    if (player.is_alive()) {
+                        player.reset_actions();
+                        state = PLAYER_TURN;
+                    }
+                    // if player is dead we stay in ENEMY_TURN indefinitely — game over
+                }
+            }
         }
 
         // cursor
@@ -215,33 +152,28 @@ int main() {
         ClearBackground(DARKGRAY);
         game_map.draw_map();
 
-        // draw movement range only in default mode
         if (mode == MODE_NONE)
             player.draw_range(tile_size, cols, rows);
 
-        // highlight valid shoot targets in red
         if (mode == MODE_SHOOT) {
             for (auto& e : enemies) {
                 if (!e.is_alive()) continue;
                 int dist = std::max(abs(e.get_x_pos() - player.get_x_pos()),
                                     abs(e.get_y_pos() - player.get_y_pos()));
-                if (dist <= SHOOT_RANGE) {
+                if (dist <= player.get_shoot_range())
                     DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
                                   tile_size, tile_size, Fade(RED, 0.4f));
-                }
             }
         }
 
-        // highlight valid melee targets
         if (mode == MODE_MELEE) {
             for (auto& e : enemies) {
                 if (!e.is_alive()) continue;
                 int dist = std::max(abs(e.get_x_pos() - player.get_x_pos()),
                                     abs(e.get_y_pos() - player.get_y_pos()));
-                if (dist <= MELEE_RANGE) {
+                if (dist <= 1)
                     DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
                                   tile_size, tile_size, Fade(ORANGE, 0.5f));
-                }
             }
         }
 
@@ -251,8 +183,11 @@ int main() {
         }
         player.draw(tile_size);
 
-        draw_action_bar(SCREEN_W, SCREEN_H, player.get_hp(), player.get_max_hp(),
-                        player.get_actions(), state, mode);
+        // game over overlay
+        if (!player.is_alive())
+            DrawText("GAME OVER", SCREEN_W/2 - MeasureText("GAME OVER", 40)/2, SCREEN_H/2 - 60, 40, RED);
+
+        game_hud.draw(player, state, mode);
 
         EndDrawing();
     }
