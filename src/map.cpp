@@ -15,4 +15,8 @@ void map::draw_map() {
             DrawRectangleLines(col*tile_size, row*tile_size, tile_size, tile_size, BLACK);
     }
 }
+
+int map::get_tile_size() {
+    return tile_size;
+}
 }

@@ -9,6 +9,7 @@ by Jeffery Myers is marked with CC0 1.0. To view a copy of this license, visit h
 
 #include "raylib.h"
 #include "map.h"
+#include "units/unit.h"
 
 #include "resource_dir.h"	// utility header for SearchAndSetResourceDir
 
@@ -20,6 +21,7 @@ int main ()
 	// Create the window and OpenGL context
 	InitWindow(800, 800, "Hello Raylib");
 	map game_map = map(640,640,64);
+	unit test_unit = unit(1,2);
 	
 	// game loop
 	while (!WindowShouldClose())		// run the loop until the user presses ESCAPE or presses the Close button on the window
@@ -28,6 +30,7 @@ int main ()
 		BeginDrawing();
 		ClearBackground(DARKGRAY);
 		game_map.draw_map();
+		test_unit.draw(64);
 		EndDrawing();
 	}
 
