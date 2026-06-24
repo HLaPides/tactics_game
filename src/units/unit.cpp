@@ -2,11 +2,13 @@
 #include "raylib.h"
 #include <algorithm>
 
-unit::unit(int x_pos, int y_pos, int mvmt) {
+unit::unit(int x_pos, int y_pos, int mvmt, int hp) {
     x_position = x_pos;
     y_position = y_pos;
     movement = mvmt;
     actions_remaining = MAX_ACTIONS;
+    this->hp = hp;
+    max_hp = hp;
 }
 
 int unit::get_movement() { 
@@ -25,12 +27,33 @@ int unit::get_actions() {
     return actions_remaining; 
 }
 
+int unit::get_hp() { 
+    return hp; 
+}
+
+int unit::get_max_hp() { 
+    return max_hp; 
+}
+
+bool unit::is_alive() { 
+    return hp > 0; 
+}
+
 void unit::use_action() { 
     if (actions_remaining > 0) actions_remaining--; 
 }
 
 void unit::reset_actions() { 
     actions_remaining = MAX_ACTIONS; 
+}
+
+void unit::take_damage(int amount) { 
+    hp = std::max(0, hp - amount); 
+}
+
+void unit::set_position(int x, int y) {
+    x_position = x;
+    y_position = y;
 }
 
 void unit::draw(int tile_size) {
@@ -47,9 +70,4 @@ void unit::draw_range(int tile_size, int cols, int rows) {
             }
         }
     }
-}
-
-void unit::set_position(int x, int y) {
-    x_position = x;
-    y_position = y;
 }
