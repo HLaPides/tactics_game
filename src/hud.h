@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "units/unit.h"
+#include "combat.h"
 
 enum GameState  { PLAYER_TURN, ENEMY_TURN };
 enum ActionMode { MODE_NONE, MODE_SHOOT, MODE_MELEE };
@@ -9,6 +10,7 @@ class hud {
 public:
     hud(int screen_w, int screen_h);
     void draw(unit& selected_unit, GameState state, ActionMode mode);
+    void draw_attack_preview(unit& target, AttackResult& result, int tile_size);
     bool clicked_shoot(Vector2 mouse);
     bool clicked_melee(Vector2 mouse);
     bool clicked_end_turn(Vector2 mouse);
