@@ -119,15 +119,15 @@ GENERATED :=
 OBJECTS :=
 
 GENERATED += $(OBJDIR)/enemy.o
+GENERATED += $(OBJDIR)/hud.o
 GENERATED += $(OBJDIR)/main.o
 GENERATED += $(OBJDIR)/map.o
 GENERATED += $(OBJDIR)/unit.o
 OBJECTS += $(OBJDIR)/enemy.o
+OBJECTS += $(OBJDIR)/hud.o
 OBJECTS += $(OBJDIR)/main.o
 OBJECTS += $(OBJDIR)/map.o
 OBJECTS += $(OBJDIR)/unit.o
-GENERATED += $(OBJDIR)/hud.o
-OBJECTS += $(OBJDIR)/hud.o
 
 # Rules
 # #############################################
@@ -191,6 +191,9 @@ endif
 # File Rules
 # #############################################
 
+$(OBJDIR)/hud.o: src/hud.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/main.o: src/main.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
@@ -201,10 +204,6 @@ $(OBJDIR)/enemy.o: src/units/enemy.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/unit.o: src/units/unit.cpp
-	@echo "$(notdir $<)"
-	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
-
-$(OBJDIR)/hud.o: src/hud.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 

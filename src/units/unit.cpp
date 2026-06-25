@@ -2,14 +2,16 @@
 #include "raylib.h"
 #include <algorithm>
 
-unit::unit(int x_pos, int y_pos, int mvmt, int hp, int shoot_range, int shoot_dmg, int melee_dmg) {
+unit::unit(int x_pos, int y_pos, int mvmt, int hp, int aim, int defense, int shoot_range, int shoot_dmg, int melee_dmg) {
     x_position        = x_pos;
     y_position        = y_pos;
     movement          = mvmt;
     actions_remaining = MAX_ACTIONS;
     this->hp          = hp;
     max_hp            = hp;
-    this->shoot_range  = shoot_range;
+    this->aim         = aim;
+    this->defense     = defense;
+    this->shoot_range = shoot_range;
     shoot_damage      = shoot_dmg;
     melee_damage      = melee_dmg;
 }
@@ -36,6 +38,14 @@ int unit::get_hp() {
 
 int unit::get_max_hp() { 
     return max_hp; 
+}
+
+int unit::get_aim() { 
+    return aim; 
+}
+
+int unit::get_defense() { 
+    return defense; 
 }
 
 int unit::get_shoot_range() { 

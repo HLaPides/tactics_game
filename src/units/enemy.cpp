@@ -1,10 +1,9 @@
 #include "enemy.h"
 #include "raylib.h"
 #include <algorithm>
-#include <cmath>
 
-enemy::enemy(int x_pos, int y_pos, int mvmt, int hp, int shoot_range, int shoot_dmg, int melee_dmg)
-    : unit(x_pos, y_pos, mvmt, hp, shoot_range, shoot_dmg, melee_dmg) {}
+enemy::enemy(int x_pos, int y_pos, int mvmt, int hp, int aim, int defense, int shoot_range, int shoot_dmg, int melee_dmg)
+    : unit(x_pos, y_pos, mvmt, hp, aim, defense, shoot_range, shoot_dmg, melee_dmg) {}
 
 bool enemy::tile_occupied(int x, int y, unit& player, std::vector<enemy>& enemies) {
     if (player.get_x_pos() == x && player.get_y_pos() == y) return true;
@@ -31,7 +30,6 @@ void enemy::act(unit& player, std::vector<enemy>& enemies) {
         player.take_damage(get_shoot_damage());
         use_action();
     } else {
-        // step one tile toward the player
         int step_x = get_x_pos();
         int step_y = get_y_pos();
         if (px > get_x_pos()) step_x++;
@@ -45,7 +43,7 @@ void enemy::act(unit& player, std::vector<enemy>& enemies) {
         use_action();
     }
 
-    // action 2 — if now adjacent after moving, melee
+    // action 2
     dist = std::max(abs(get_x_pos() - px), abs(get_y_pos() - py));
     if (get_actions() > 0) {
         if (dist <= 1) {
@@ -55,7 +53,6 @@ void enemy::act(unit& player, std::vector<enemy>& enemies) {
             player.take_damage(get_shoot_damage());
             use_action();
         } else {
-            // second move
             int step_x = get_x_pos();
             int step_y = get_y_pos();
             if (px > get_x_pos()) step_x++;
