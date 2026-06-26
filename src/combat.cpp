@@ -129,25 +129,31 @@ CoverResult get_cover(unit& attacker, unit& target, const GameMap& game_map) {
 AttackResult calculate_odds(unit& attacker, unit& target, const GameMap& game_map, int base_damage) {
     AttackResult result = {};
 
-    int dist       = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
-                              abs(attacker.get_y_pos() - target.get_y_pos()));
-    int half_range = attacker.get_shoot_range() / 2;
-    result.range_penalty = (dist > half_range) ? 10 : 0;
+    int dist = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
+                        abs(attacker.get_y_pos() - target.get_y_pos()));
+
+    // range penalty scales quadratically, divided by aim so high-aim units degrade slower
+    int aim          = attacker.get_aim();
+    int range_penalty = (dist * dist * 10) / std::max(aim, 1);
+    result.range_penalty = range_penalty;
 
     CoverResult cover    = get_cover(attacker, target, game_map);
     result.cover_penalty = cover.penalty;
     result.is_flanking   = cover.flanked;
     result.flank_bonus   = cover.flanked ? 30 : 0;
 
-    result.aim_component   = attacker.get_aim();
+    result.aim_component   = aim;
     result.defense_penalty = target.get_defense();
 
-    result.hit_chance = result.aim_component
+    int aim_bonus = (aim - 60);
+    result.hit_chance = 85
+                      + aim_bonus
                       + result.flank_bonus
                       - result.range_penalty
                       - result.defense_penalty
                       - result.cover_penalty;
-    result.hit_chance = std::max(1, std::min(99, result.hit_chance));
+    result.hit_chance = std::max(5, std::min(99, result.hit_chance));
+
     result.crit_chance = cover.flanked ? 15 : 5;
 
     return result;

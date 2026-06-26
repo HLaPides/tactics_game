@@ -157,9 +157,10 @@ void TurnManager::apply_shoot(const Intent& intent, GameState& state) {
         if (!state.spotted[i]) continue;
         if (e.get_x_pos() != intent.target_x || e.get_y_pos() != intent.target_y) continue;
 
+        // target must be in sight range and have LOS — shoot_range no longer hard caps
         int dist = std::max(abs(intent.target_x - active.get_x_pos()),
                             abs(intent.target_y - active.get_y_pos()));
-        if (dist > active.get_shoot_range()) break;
+        if (dist > active.get_sight_range()) break;
         if (!has_los(active.get_x_pos(), active.get_y_pos(),
                      e.get_x_pos(), e.get_y_pos(), state.map)) break;
 

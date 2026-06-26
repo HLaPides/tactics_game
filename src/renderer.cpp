@@ -80,13 +80,18 @@ void Renderer::draw_target_highlights(const GameState& state) {
     int         tile_size = config.tile_size;
 
     if (state.mode == ActionMode::SHOOT) {
-        for (const auto& e : state.enemies) {
-            if (!e.is_alive()) continue;
+        for (int i = 0; i < (int)state.enemies.size(); i++) {
+            if (!state.enemies[i].is_alive()) continue;
+            if (!state.spotted[i]) continue;
+            const auto& e = state.enemies[i];
             int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
                                 abs(e.get_y_pos() - active.get_y_pos()));
-            if (dist <= active.get_shoot_range())
+            if (dist <= active.get_sight_range() &&
+                has_los(active.get_x_pos(), active.get_y_pos(),
+                        e.get_x_pos(), e.get_y_pos(),
+                        const_cast<GameMap&>(state.map)))
                 DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                              tile_size, tile_size, Fade(RED, 0.4f));
+                            tile_size, tile_size, Fade(RED, 0.4f));
         }
     }
 

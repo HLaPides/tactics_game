@@ -42,7 +42,6 @@ std::optional<Intent> InputHandler::poll(const GameState& state) {
     const unit& active = state.players[state.selected_player];
     Vector2 mouse = GetMousePosition();
 
-    // Tab cycles through living players
     if (IsKeyPressed(KEY_TAB) && state.phase == GamePhase::PLAYER_TURN) {
         int next = state.selected_player;
         for (int i = 1; i <= (int)state.players.size(); i++) {
@@ -78,7 +77,6 @@ std::optional<Intent> InputHandler::poll(const GameState& state) {
 
     if (state.phase != GamePhase::PLAYER_TURN) return std::nullopt;
 
-    // click on another player unit to select them
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (i == state.selected_player) continue;
         if (!state.players[i].is_alive()) continue;
@@ -117,12 +115,18 @@ void InputHandler::update_preview(GameState& state) {
         if (!state.spotted[i]) continue;
         if (e.get_x_pos() != mx || e.get_y_pos() != my) continue;
 
-        int dist  = std::max(abs(mx - active.get_x_pos()),
-                             abs(my - active.get_y_pos()));
-        int range = (state.mode == ActionMode::SHOOT) ? active.get_shoot_range() : 1;
+        int dist = std::max(abs(mx - active.get_x_pos()),
+                            abs(my - active.get_y_pos()));
 
-        if (dist <= range && has_los(active.get_x_pos(), active.get_y_pos(),
-                                     e.get_x_pos(), e.get_y_pos(), state.map)) {
+        // shoot: any spotted enemy in sight range with LOS
+        // melee: adjacent only
+        bool in_range = (state.mode == ActionMode::SHOOT)
+                      ? (dist <= active.get_sight_range() &&
+                         has_los(active.get_x_pos(), active.get_y_pos(),
+                                 e.get_x_pos(), e.get_y_pos(), state.map))
+                      : (dist <= 1);
+
+        if (in_range) {
             int base_dmg = (state.mode == ActionMode::SHOOT)
                          ? active.get_shoot_damage()
                          : active.get_melee_damage();
