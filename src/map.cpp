@@ -2,16 +2,17 @@
 #include <fstream>
 #include <string>
 
+GameMap::GameMap() : GameMap(32) {}
+
 GameMap::GameMap(int tile_size) {
     this->tile_size = tile_size;
     cols            = 0;
     rows            = 0;
 }
 
-GameMap::GameMap() : GameMap(32) {}
-
 Tile GameMap::make_tile(char c) {
     Tile t;
+    t.is_objective = false;
     switch (c) {
         case 'W':
             t.type     = TILE_WALL;
@@ -56,15 +57,21 @@ bool GameMap::load(const std::string& filepath) {
         std::vector<Tile> row;
         for (int col_idx = 0; col_idx < (int)line.size(); col_idx++) {
             char c = line[col_idx];
-            if (c == 'P') {
-                player_spawns.push_back({col_idx, row_idx});
-                row.push_back(make_tile('.'));
-            } else if (c == 'E') {
-                enemy_spawns.push_back({col_idx, row_idx});
-                row.push_back(make_tile('.'));
+            Tile t = make_tile('.');
+
+            if (c >= '1' && c <= '9') {
+                // player spawn — digit encodes unit type
+                player_spawns.push_back({col_idx, row_idx, c});
+            } else if (c == 'E' || c == 'G' || c == 'C') {
+                // enemy spawn — letter encodes enemy type
+                enemy_spawns.push_back({col_idx, row_idx, c});
+            } else if (c == 'Q') {
+                // objective tile — walkable floor that triggers win
+                t.is_objective = true;
             } else {
-                row.push_back(make_tile(c));
+                t = make_tile(c);
             }
+            row.push_back(t);
         }
         tiles.push_back(row);
         row_idx++;
@@ -89,6 +96,11 @@ Tile GameMap::get_tile(int col, int row) {
 
 bool GameMap::is_walkable(int col, int row) {
     return get_tile(col, row).walkable;
+}
+
+bool GameMap::is_objective(int col, int row) {
+    if (row < 0 || row >= rows || col < 0 || col >= cols) return false;
+    return tiles[row][col].is_objective;
 }
 
 const std::vector<std::vector<Tile>>& GameMap::get_tiles() const {

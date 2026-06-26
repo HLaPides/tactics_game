@@ -34,6 +34,8 @@ bool InputHandler::clicked_end_turn(Vector2 mouse) const {
 }
 
 std::optional<Intent> InputHandler::poll(const GameState& state) {
+    if (state.players.empty()) return std::nullopt;
+    const unit& active = state.players[state.selected_player];
     Vector2 mouse = GetMousePosition();
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || IsKeyPressed(KEY_ESCAPE)) {
@@ -64,12 +66,13 @@ std::optional<Intent> InputHandler::poll(const GameState& state) {
 }
 
 void InputHandler::update_preview(GameState& state) {
+    if (state.players.empty()) return;
+    unit& active = state.players[state.selected_player];
     Vector2 mouse = GetMousePosition();
     state.preview = {};
 
-    // handle mode toggle on HUD button click
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !mouse_on_grid(mouse)
-        && state.phase == GamePhase::PLAYER_TURN && state.player.get_actions() > 0) {
+        && state.phase == GamePhase::PLAYER_TURN && active.get_actions() > 0) {
         if (clicked_shoot(mouse))
             state.mode = (state.mode == ActionMode::SHOOT) ? ActionMode::NONE : ActionMode::SHOOT;
         else if (clicked_melee(mouse))
@@ -85,21 +88,21 @@ void InputHandler::update_preview(GameState& state) {
     for (int i = 0; i < (int)state.enemies.size(); i++) {
         auto& e = state.enemies[i];
         if (!e.is_alive()) continue;
-        if (!state.spotted[i]) continue;  // can't target unspotted enemies
+        if (!state.spotted[i]) continue;
         if (e.get_x_pos() != mx || e.get_y_pos() != my) continue;
 
-        int dist  = std::max(abs(mx - state.player.get_x_pos()),
-                            abs(my - state.player.get_y_pos()));
-        int range = (state.mode == ActionMode::SHOOT) ? state.player.get_shoot_range() : 1;
+        int dist  = std::max(abs(mx - active.get_x_pos()),
+                             abs(my - active.get_y_pos()));
+        int range = (state.mode == ActionMode::SHOOT) ? active.get_shoot_range() : 1;
 
-        if (dist <= range && has_los(state.player.get_x_pos(), state.player.get_y_pos(),
-                                    e.get_x_pos(), e.get_y_pos(), state.map)) {
+        if (dist <= range && has_los(active.get_x_pos(), active.get_y_pos(),
+                                     e.get_x_pos(), e.get_y_pos(), state.map)) {
             int base_dmg = (state.mode == ActionMode::SHOOT)
-                        ? state.player.get_shoot_damage()
-                        : state.player.get_melee_damage();
+                         ? active.get_shoot_damage()
+                         : active.get_melee_damage();
             state.preview.active = true;
             state.preview.target = &e;
-            state.preview.result = calculate_odds(state.player, e, state.map, base_dmg);
+            state.preview.result = calculate_odds(active, e, state.map, base_dmg);
         }
         break;
     }

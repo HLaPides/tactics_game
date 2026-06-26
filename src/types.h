@@ -1,9 +1,12 @@
 #pragma once
+#include <unordered_map>
+#include <string>
+#include <utility>
 
 enum class GamePhase  { PLAYER_TURN, ENEMY_TURN };
-enum class ActionMode { NONE, SHOOT, MELEE };
+enum class ActionMode { NONE, SHOOT, MELEE, HEAL };
 
-enum class IntentType { Move, Shoot, Melee, EndTurn, Cancel };
+enum class IntentType { Move, Shoot, Melee, Heal, EndTurn, Cancel };
 
 struct Intent {
     IntentType type;
@@ -28,3 +31,13 @@ struct AppConfig {
     int grid_h    = 640;
     int tile_size = 32;
 };
+
+namespace UnitPresets {
+    inline UnitStats Bosun()        { return { 4, 10, 55, 20,  3, 1, 3,  8 }; }
+    inline UnitStats Sharpshooter() { return { 3,  5, 85, 10, 10, 2, 1, 12 }; }
+    inline UnitStats Medic()        { return { 3,  6, 60, 15,  4, 1, 1,  8 }; }
+    inline UnitStats Swashbuckler() { return { 3,  6, 65, 15,  5, 1, 2,  8 }; }
+    inline UnitStats Soldier()      { return { 2,  4, 60, 10,  4, 1, 1,  6 }; }
+    inline UnitStats Guard()        { return { 3,  5, 50, 15,  2, 1, 2,  6 }; }
+    inline UnitStats Captain()      { return { 3, 10, 70, 20,  5, 2, 3, 10 }; }
+}

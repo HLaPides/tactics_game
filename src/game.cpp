@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 game::game(const std::string& level_dir, const AppConfig& cfg)
     : config(cfg)
@@ -24,42 +26,62 @@ bool game::load_level(const std::string& level_dir) {
     int chosen = GetRandomValue(0, (int)levels.size() - 1);
     if (!state.map.load(levels[chosen])) return false;
 
+    // player unit lookup — add new types by extending this table
+    std::unordered_map<char, std::pair<UnitStats, std::string>> player_types = {
+        { '1', { UnitPresets::Bosun(),        "Bosun"        } },
+        { '2', { UnitPresets::Sharpshooter(), "Sharpshooter" } },
+        { '3', { UnitPresets::Medic(),        "Medic"        } },
+        { '4', { UnitPresets::Swashbuckler(), "Swashbuckler" } },
+    };
+
+    // enemy unit lookup — add new types by extending this table
+    std::unordered_map<char, UnitStats> enemy_types = {
+        { 'E', UnitPresets::Soldier() },
+        { 'G', UnitPresets::Guard()   },
+        { 'C', UnitPresets::Captain() },
+    };
+
     auto player_spawns = state.map.get_player_spawns();
     auto enemy_spawns  = state.map.get_enemy_spawns();
 
     if (player_spawns.empty()) return false;
 
-    for (int i = (int)enemy_spawns.size() - 1; i > 0; i--) {
-        int j = GetRandomValue(0, i);
-        std::swap(enemy_spawns[i], enemy_spawns[j]);
+    // sort player spawns by type digit so unit 1 always spawns before 2 etc.
+    std::sort(player_spawns.begin(), player_spawns.end(),
+              [](const SpawnPoint& a, const SpawnPoint& b) {
+                  return a.type < b.type;
+              });
+
+    for (auto& sp : player_spawns) {
+        auto it = player_types.find(sp.type);
+        if (it == player_types.end()) continue;
+        state.players.push_back(unit(sp.col, sp.row, it->second.first));
+        state.player_names.push_back(it->second.second);
     }
 
-    state.player = unit(player_spawns[0].col, player_spawns[0].row,
-                        UnitStats{ 4, 10, 75, 15, 6, 2, 3, 10 });
-
-    int enemy_count = std::min(6, (int)enemy_spawns.size());
-    for (int i = 0; i < enemy_count; i++) {
-        state.enemies.push_back(
-            enemy(enemy_spawns[i].col, enemy_spawns[i].row,
-                  UnitStats{ 2, 5, 60, 10, 3, 1, 1, 6 }));
+    for (auto& sp : enemy_spawns) {
+        auto it = enemy_types.find(sp.type);
+        if (it == enemy_types.end()) continue;
+        state.enemies.push_back(enemy(sp.col, sp.row, it->second));
     }
 
-    // initialise spotted — all false
+    if (state.players.empty()) return false;
+
     state.spotted.assign(state.enemies.size(), false);
-
-    // run initial visibility check
+    state.selected_player = 0;
     update_visibility();
-
     return true;
 }
 
 void game::update_visibility() {
-    int px = state.player.get_x_pos();
-    int py = state.player.get_y_pos();
-    int sr = state.player.get_sight_range();
+    if (state.players.empty()) return;
+    unit& active = state.players[state.selected_player];
+    int px = active.get_x_pos();
+    int py = active.get_y_pos();
+    int sr = active.get_sight_range();
 
     for (int i = 0; i < (int)state.enemies.size(); i++) {
-        if (state.spotted[i]) continue;  // already spotted — stays visible
+        if (state.spotted[i]) continue;
         if (!state.enemies[i].is_alive()) continue;
 
         int ex   = state.enemies[i].get_x_pos();
@@ -71,7 +93,32 @@ void game::update_visibility() {
     }
 }
 
+void game::check_win_conditions() {
+    if (state.win_state != WinState::ONGOING) return;
+
+    // defeat — all players dead
+    bool any_alive = false;
+    for (auto& p : state.players) {
+        if (p.is_alive()) { any_alive = true; break; }
+    }
+    if (!any_alive) {
+        state.win_state = WinState::DEFEAT;
+        return;
+    }
+
+    // victory — any living player on objective tile
+    for (auto& p : state.players) {
+        if (!p.is_alive()) continue;
+        if (state.map.is_objective(p.get_x_pos(), p.get_y_pos())) {
+            state.win_state = WinState::VICTORY;
+            return;
+        }
+    }
+}
+
 void game::update(float dt) {
+    if (state.win_state != WinState::ONGOING) return;
+
     state.floating_texts.update(dt);
     input.update_preview(state);
 
@@ -80,11 +127,13 @@ void game::update(float dt) {
         if (intent.has_value())
             turns.apply_player_intent(intent.value(), state);
         update_visibility();
+        check_win_conditions();
     }
 
     if (state.phase == GamePhase::ENEMY_TURN) {
         turns.update_enemy_turn(dt, state, ai);
         update_visibility();
+        check_win_conditions();
     }
 
     if (state.mode == ActionMode::SHOOT || state.mode == ActionMode::MELEE)

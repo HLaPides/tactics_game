@@ -2,7 +2,7 @@
 #include "raylib.h"
 #include <algorithm>
 
-Renderer::Renderer(const AppConfig& config) : config(config) {}
+Renderer::Renderer(const AppConfig& cfg) : config(cfg) {}
 
 void Renderer::draw_frame(const GameState& state) {
     BeginDrawing();
@@ -23,14 +23,17 @@ void Renderer::draw_map(const GameState& state) {
     int         tile_size = config.tile_size;
     for (int row = 0; row < (int)tiles.size(); row++) {
         for (int col = 0; col < (int)tiles[row].size(); col++) {
-            int          x = col * tile_size;
-            int          y = row * tile_size;
-            const Tile&  t = tiles[row][col];
+            int         x = col * tile_size;
+            int         y = row * tile_size;
+            const Tile& t = tiles[row][col];
             switch (t.type) {
                 case TILE_WALL:    DrawRectangle(x, y, tile_size, tile_size, GRAY);      break;
                 case TILE_BARREL:  DrawRectangle(x, y, tile_size, tile_size, BROWN);     break;
                 case TILE_RAILING: DrawRectangle(x, y, tile_size, tile_size, DARKBROWN); break;
-                default: break;
+                default:
+                    if (t.is_objective)
+                        DrawRectangle(x, y, tile_size, tile_size, Fade(GOLD, 0.4f));
+                    break;
             }
             DrawRectangleLines(x, y, tile_size, tile_size, BLACK);
         }
@@ -38,15 +41,18 @@ void Renderer::draw_map(const GameState& state) {
 }
 
 void Renderer::draw_range_overlay(const GameState& state) {
+    if (state.players.empty()) return;
     if (state.mode != ActionMode::NONE) return;
-    if (state.player.get_actions() <= 0) return;
+
+    const unit& active = state.players[state.selected_player];
+    if (active.get_actions() <= 0) return;
 
     int tile_size = config.tile_size;
     int cols      = state.map.getCols();
     int rows      = state.map.getRows();
-    int px        = state.player.get_x_pos();
-    int py        = state.player.get_y_pos();
-    int mv        = state.player.get_movement();
+    int px        = active.get_x_pos();
+    int py        = active.get_y_pos();
+    int mv        = active.get_movement();
 
     for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
@@ -59,14 +65,16 @@ void Renderer::draw_range_overlay(const GameState& state) {
 }
 
 void Renderer::draw_target_highlights(const GameState& state) {
-    int tile_size = config.tile_size;
+    if (state.players.empty()) return;
+    const unit& active    = state.players[state.selected_player];
+    int         tile_size = config.tile_size;
 
     if (state.mode == ActionMode::SHOOT) {
         for (const auto& e : state.enemies) {
             if (!e.is_alive()) continue;
-            int dist = std::max(abs(e.get_x_pos() - state.player.get_x_pos()),
-                                abs(e.get_y_pos() - state.player.get_y_pos()));
-            if (dist <= state.player.get_shoot_range())
+            int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
+                                abs(e.get_y_pos() - active.get_y_pos()));
+            if (dist <= active.get_shoot_range())
                 DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
                               tile_size, tile_size, Fade(RED, 0.4f));
         }
@@ -75,8 +83,8 @@ void Renderer::draw_target_highlights(const GameState& state) {
     if (state.mode == ActionMode::MELEE) {
         for (const auto& e : state.enemies) {
             if (!e.is_alive()) continue;
-            int dist = std::max(abs(e.get_x_pos() - state.player.get_x_pos()),
-                                abs(e.get_y_pos() - state.player.get_y_pos()));
+            int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
+                                abs(e.get_y_pos() - active.get_y_pos()));
             if (dist <= 1)
                 DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
                               tile_size, tile_size, Fade(ORANGE, 0.5f));
@@ -87,9 +95,10 @@ void Renderer::draw_target_highlights(const GameState& state) {
 void Renderer::draw_units(const GameState& state) {
     int tile_size = config.tile_size;
 
+    // draw enemies
     for (int i = 0; i < (int)state.enemies.size(); i++) {
         if (!state.enemies[i].is_alive()) continue;
-        if (!state.spotted[i]) continue;  // not spotted — don't draw
+        if (!state.spotted[i]) continue;
 
         const enemy& e = state.enemies[i];
         int x = e.get_x_pos() * tile_size;
@@ -102,9 +111,28 @@ void Renderer::draw_units(const GameState& state) {
         }
     }
 
-    DrawRectangle(state.player.get_x_pos() * tile_size,
-                  state.player.get_y_pos() * tile_size,
-                  tile_size, tile_size, RED);
+    // draw all player units
+    for (int i = 0; i < (int)state.players.size(); i++) {
+        if (!state.players[i].is_alive()) continue;
+        const unit& p     = state.players[i];
+        int         x     = p.get_x_pos() * tile_size;
+        int         y     = p.get_y_pos() * tile_size;
+        bool        is_selected = (i == state.selected_player);
+
+        // selected unit is bright red, others are darker red
+        Color unit_color = is_selected ? RED : Color{150, 30, 30, 255};
+        DrawRectangle(x, y, tile_size, tile_size, unit_color);
+
+        // selection indicator
+        if (is_selected)
+            DrawRectangleLines(x, y, tile_size, tile_size, WHITE);
+
+        // HP pips above player units
+        for (int j = 0; j < p.get_max_hp(); j++) {
+            Color pip = j < p.get_hp() ? GREEN : DARKGRAY;
+            DrawRectangle(x + 4 + j * 10, y - 10, 8, 6, pip);
+        }
+    }
 }
 
 void Renderer::draw_floating_texts(const GameState& state) {
@@ -148,23 +176,23 @@ void Renderer::draw_attack_preview(const GameState& state) {
     DrawText(TextFormat("%d%% to hit", result.hit_chance), px + 8, py + 6,  14, hit_color);
     DrawText(TextFormat("%d%% crit",   result.crit_chance), px + 8, py + 22, 11, ORANGE);
 
-    int line_y      = py + 38;
+    int       line_y = py + 38;
     const int LINE_H = 12;
 
-    DrawText(TextFormat("aim      %+d", result.aim_component),    px + 8, line_y, 10, LIGHTGRAY);
+    DrawText(TextFormat("aim      %+d", result.aim_component),     px + 8, line_y, 10, LIGHTGRAY);
     line_y += LINE_H;
     if (result.flank_bonus > 0) {
-        DrawText(TextFormat("flank    %+d", result.flank_bonus),  px + 8, line_y, 10, GREEN);
+        DrawText(TextFormat("flank    %+d", result.flank_bonus),   px + 8, line_y, 10, GREEN);
         line_y += LINE_H;
     }
     if (result.range_penalty > 0) {
-        DrawText(TextFormat("range    -%d", result.range_penalty),px + 8, line_y, 10, RED);
+        DrawText(TextFormat("range    -%d", result.range_penalty), px + 8, line_y, 10, RED);
         line_y += LINE_H;
     }
-    DrawText(TextFormat("defense  -%d", result.defense_penalty),  px + 8, line_y, 10, LIGHTGRAY);
+    DrawText(TextFormat("defense  -%d", result.defense_penalty),   px + 8, line_y, 10, LIGHTGRAY);
     line_y += LINE_H;
     if (result.cover_penalty > 0) {
-        DrawText(TextFormat("cover    -%d", result.cover_penalty),px + 8, line_y, 10, SKYBLUE);
+        DrawText(TextFormat("cover    -%d", result.cover_penalty), px + 8, line_y, 10, SKYBLUE);
         line_y += LINE_H;
     }
     if (result.is_flanking)
@@ -172,24 +200,33 @@ void Renderer::draw_attack_preview(const GameState& state) {
 }
 
 void Renderer::draw_hud(const GameState& state) {
-    int bar_y = config.screen_h - BAR_HEIGHT;
+    if (state.players.empty()) return;
+    const unit& active = state.players[state.selected_player];
+    int         bar_y  = config.screen_h - BAR_HEIGHT;
 
     DrawRectangle(0, bar_y, config.screen_w, BAR_HEIGHT,
                   ColorFromNormalized({0.13f, 0.13f, 0.13f, 1.0f}));
     DrawLine(0, bar_y, config.screen_w, bar_y, GRAY);
 
-    // unit info
-    DrawText("Bosun", 12, bar_y + 10, 16, WHITE);
+    // unit name
+    const char* name = state.selected_player < (int)state.player_names.size()
+                     ? state.player_names[state.selected_player].c_str()
+                     : "Unit";
+    DrawText(name, 12, bar_y + 10, 16, WHITE);
+
+    // action pips
     for (int i = 0; i < 2; i++) {
-        Color pip = i < state.player.get_actions() ? SKYBLUE : DARKGRAY;
+        Color pip = i < active.get_actions() ? SKYBLUE : DARKGRAY;
         DrawCircle(12 + i * 16, bar_y + 36, 5, pip);
     }
+
+    // HP bar
     DrawText("HP", 12, bar_y + 50, 12, GRAY);
     DrawRectangle(30, bar_y + 52, 60, 8, DARKGRAY);
-    float hp_frac  = (float)state.player.get_hp() / state.player.get_max_hp();
+    float hp_frac  = (float)active.get_hp() / active.get_max_hp();
     Color hp_color = hp_frac > 0.5f ? GREEN : (hp_frac > 0.25f ? ORANGE : RED);
     DrawRectangle(30, bar_y + 52, (int)(60 * hp_frac), 8, hp_color);
-    DrawText(TextFormat("%d/%d", state.player.get_hp(), state.player.get_max_hp()),
+    DrawText(TextFormat("%d/%d", active.get_hp(), active.get_max_hp()),
              96, bar_y + 50, 12, GRAY);
     DrawLine(130, bar_y + 8, 130, bar_y + BAR_HEIGHT - 8, GRAY);
 
@@ -200,13 +237,13 @@ void Renderer::draw_hud(const GameState& state) {
         int bx = BTN_START_X + i * (BTN_W + BTN_GAP);
         int by = bar_y + BTN_Y_OFFSET;
 
-        bool active     = (state.mode == btn_modes[i]);
-        bool no_actions = (state.player.get_actions() <= 0);
+        bool is_active  = (state.mode == btn_modes[i]);
+        bool no_actions = (active.get_actions() <= 0);
 
-        Color border = active ? SKYBLUE : (no_actions ? DARKGRAY : GRAY);
-        Color label  = active ? SKYBLUE : (no_actions ? DARKGRAY : WHITE);
-        Color bg     = active ? ColorFromNormalized({0.1f, 0.3f, 0.5f, 1.0f})
-                              : ColorFromNormalized({0.18f, 0.18f, 0.18f, 1.0f});
+        Color border = is_active ? SKYBLUE : (no_actions ? DARKGRAY : GRAY);
+        Color label  = is_active ? SKYBLUE : (no_actions ? DARKGRAY : WHITE);
+        Color bg     = is_active ? ColorFromNormalized({0.1f, 0.3f, 0.5f, 1.0f})
+                                 : ColorFromNormalized({0.18f, 0.18f, 0.18f, 1.0f});
 
         DrawRectangle(bx, by, BTN_W, BTN_H, bg);
         DrawRectangleLines(bx, by, BTN_W, BTN_H, border);
@@ -229,8 +266,15 @@ void Renderer::draw_hud(const GameState& state) {
 }
 
 void Renderer::draw_game_over(const GameState& state) {
-    if (state.player.is_alive()) return;
-    DrawText("GAME OVER",
-             config.screen_w / 2 - MeasureText("GAME OVER", 40) / 2,
-             config.screen_h / 2 - 60, 40, RED);
+    if (state.win_state == WinState::ONGOING) return;
+
+    if (state.win_state == WinState::VICTORY) {
+        DrawText("VICTORY!",
+                 config.screen_w / 2 - MeasureText("VICTORY!", 40) / 2,
+                 config.screen_h / 2 - 60, 40, GOLD);
+    } else {
+        DrawText("GAME OVER",
+                 config.screen_w / 2 - MeasureText("GAME OVER", 40) / 2,
+                 config.screen_h / 2 - 60, 40, RED);
+    }
 }

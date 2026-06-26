@@ -12,15 +12,16 @@ public:
     game(const std::string& level_dir, const AppConfig& config);
     void run();
 private:
-    AppConfig      config;
-    GameState      state;
-    InputHandler   input;
-    TurnManager    turns;
-    AIController   ai;
-    Renderer       renderer;
+    AppConfig    config;
+    GameState    state;
+    InputHandler input;
+    TurnManager  turns;
+    AIController ai;
+    Renderer     renderer;
 
     bool load_level(const std::string& level_dir);
     void update_visibility();
+    void check_win_conditions();
     void update(float dt);
     void draw();
 };

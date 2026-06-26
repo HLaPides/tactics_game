@@ -6,14 +6,20 @@
 #include "floating_text.h"
 #include "types.h"
 #include <vector>
+#include <string>
+
+enum class WinState { ONGOING, VICTORY, DEFEAT };
 
 struct GameState {
-    GameMap              map;
-    unit                 player;
-    std::vector<enemy>   enemies;
-    std::vector<bool>    spotted;   // spotted[i] mirrors enemies[i]
-    GamePhase            phase   = GamePhase::PLAYER_TURN;
-    ActionMode           mode    = ActionMode::NONE;
-    AttackPreview        preview = {};
-    FloatingTextManager  floating_texts;
+    GameMap                  map;
+    std::vector<unit>        players;
+    std::vector<std::string> player_names;
+    int                      selected_player = 0;
+    std::vector<enemy>       enemies;
+    std::vector<bool>        spotted;
+    GamePhase                phase      = GamePhase::PLAYER_TURN;
+    ActionMode               mode       = ActionMode::NONE;
+    AttackPreview            preview    = {};
+    FloatingTextManager      floating_texts;
+    WinState                 win_state  = WinState::ONGOING;
 };
