@@ -38,7 +38,7 @@ namespace UnitPresets {
     inline UnitStats Sharpshooter() { return { 3,  5, 85,  5, 10, 2, 1, 12 }; }
     inline UnitStats Medic()        { return { 3,  6, 60,  5,  4, 1, 1,  8 }; }
     inline UnitStats Swashbuckler() { return { 3,  6, 65,  8,  5, 1, 2,  8 }; }
-    inline UnitStats Soldier()      { return { 2,  4, 60,  5,  4, 1, 1,  6 }; }
-    inline UnitStats Guard()        { return { 3,  5, 50,  8,  2, 1, 2,  6 }; }
-    inline UnitStats Captain()      { return { 3, 10, 70, 10,  5, 2, 3, 10 }; }
+    inline UnitStats Soldier()      { return { 4,  4, 60,  5,  4, 1, 1,  6 }; }
+    inline UnitStats Guard()        { return { 5,  5, 50,  8,  2, 1, 2,  6 }; }
+    inline UnitStats Captain()      { return { 4, 10, 70, 10,  5, 2, 3, 10 }; }
 }

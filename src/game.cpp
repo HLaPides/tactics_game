@@ -1,5 +1,6 @@
 #include "game.h"
 #include "combat.h"
+#include "units/enemy.h"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
@@ -33,10 +34,10 @@ bool game::load_level(const std::string& level_dir) {
         { '4', { UnitPresets::Swashbuckler(), "Swashbuckler" } },
     };
 
-    std::unordered_map<char, UnitStats> enemy_types = {
-        { 'E', UnitPresets::Soldier() },
-        { 'G', UnitPresets::Guard()   },
-        { 'C', UnitPresets::Captain() },
+    std::unordered_map<char, std::pair<UnitStats, EnemyType>> enemy_types = {
+        { 'E', { UnitPresets::Soldier(), EnemyType::SOLDIER  } },
+        { 'G', { UnitPresets::Guard(),   EnemyType::GUARD    } },
+        { 'C', { UnitPresets::Captain(), EnemyType::CAPTAIN  } },
     };
 
     auto player_spawns = state.map.get_player_spawns();
@@ -59,7 +60,7 @@ bool game::load_level(const std::string& level_dir) {
     for (auto& sp : enemy_spawns) {
         auto it = enemy_types.find(sp.type);
         if (it == enemy_types.end()) continue;
-        state.enemies.push_back(enemy(sp.col, sp.row, it->second));
+        state.enemies.push_back(enemy(sp.col, sp.row, it->second.first, it->second.second));
     }
 
     if (state.players.empty()) return false;

@@ -2,6 +2,7 @@
 #include "combat.h"
 #include "raylib.h"
 #include <algorithm>
+#include <limits>
 
 TurnManager::TurnManager() {
     enemy_index = 0;
@@ -89,8 +90,24 @@ void TurnManager::update_enemy_turn(float dt, GameState& state, AIController& ai
         enemy_index++;
 
     if (enemy_index < (int)state.enemies.size()) {
-        ai.act(state.enemies[enemy_index], state.players[state.selected_player],
-               state.enemies, state.map, state.floating_texts);
+        // find nearest living player to this enemy
+        enemy& acting = state.enemies[enemy_index];
+        unit*  target = nullptr;
+        int    best_dist = std::numeric_limits<int>::max();
+
+        for (auto& p : state.players) {
+            if (!p.is_alive()) continue;
+            int dist = std::max(abs(acting.get_x_pos() - p.get_x_pos()),
+                                abs(acting.get_y_pos() - p.get_y_pos()));
+            if (dist < best_dist) {
+                best_dist = dist;
+                target    = &p;
+            }
+        }
+
+        if (target != nullptr)
+            ai.act(acting, *target, state.enemies, state.map, state.floating_texts);
+
         enemy_index++;
     } else {
         end_enemy_turn(state);
