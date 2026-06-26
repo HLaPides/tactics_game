@@ -7,6 +7,20 @@
 #include "resource_dir.h"
 #include <algorithm>
 #include <vector>
+#include <string>
+
+struct FloatingText {
+    float x, y;
+    float timer;
+    float duration;
+    std::string text;
+    Color color;
+};
+
+void spawn_floating_text(std::vector<FloatingText>& texts, float x, float y,
+                         const std::string& text, Color color) {
+    texts.push_back({ x, y, 0.0f, 1.0f, text, color });
+}
 
 int main() {
     const int SCREEN_W   = 1280;
@@ -57,6 +71,8 @@ int main() {
     enemy*       hovered_enemy = nullptr;
     AttackResult hover_result  = {};
 
+    std::vector<FloatingText> floating_texts;
+
     while (!WindowShouldClose()) {
 
         float   dt            = GetFrameTime();
@@ -64,6 +80,14 @@ int main() {
         int     mx            = (int)(mouse.x / tile_size);
         int     my            = (int)(mouse.y / tile_size);
         bool    mouse_on_grid = mouse.y < GRID_H;
+
+        // update floating texts
+        for (auto& ft : floating_texts)
+            ft.timer += dt;
+        floating_texts.erase(
+            std::remove_if(floating_texts.begin(), floating_texts.end(),
+                [](const FloatingText& ft) { return ft.timer >= ft.duration; }),
+            floating_texts.end());
 
         hovered_enemy = nullptr;
         if ((mode == MODE_SHOOT || mode == MODE_MELEE) && mouse_on_grid) {
@@ -113,6 +137,12 @@ int main() {
                             e.take_damage(result.damage);
                             player.use_action();
                             mode = MODE_NONE;
+                            float fx = e.get_x_pos() * tile_size + tile_size / 2.0f;
+                            float fy = e.get_y_pos() * tile_size;
+                            if (!result.hit)
+                                spawn_floating_text(floating_texts, fx, fy, "MISS!", GRAY);
+                            else if (result.crit)
+                                spawn_floating_text(floating_texts, fx, fy, "CRIT!", YELLOW);
                             break;
                         }
                     }
@@ -126,6 +156,12 @@ int main() {
                             e.take_damage(result.damage);
                             player.use_action();
                             mode = MODE_NONE;
+                            float fx = e.get_x_pos() * tile_size + tile_size / 2.0f;
+                            float fy = e.get_y_pos() * tile_size;
+                            if (!result.hit)
+                                spawn_floating_text(floating_texts, fx, fy, "MISS!", GRAY);
+                            else if (result.crit)
+                                spawn_floating_text(floating_texts, fx, fy, "CRIT!", YELLOW);
                             break;
                         }
                     }
@@ -173,7 +209,25 @@ int main() {
                     enemy_index++;
 
                 if (enemy_index < (int)enemies.size()) {
+                    int hp_before = player.get_hp();
+                    int dist_before = std::max(abs(enemies[enemy_index].get_x_pos() - player.get_x_pos()),
+                                            abs(enemies[enemy_index].get_y_pos() - player.get_y_pos()));
+                    bool could_attack = dist_before <= 1 || dist_before <= enemies[enemy_index].get_shoot_range();
+
                     enemies[enemy_index].act(player, enemies, game_map);
+
+                    int hp_after = player.get_hp();
+                    float fx = player.get_x_pos() * tile_size + tile_size / 2.0f;
+                    float fy = player.get_y_pos() * tile_size;
+
+                    if (could_attack) {
+                        if (hp_after < hp_before) {
+                            if (hp_before - hp_after > 1)
+                                spawn_floating_text(floating_texts, fx, fy, "CRIT!", YELLOW);
+                        } else {
+                            spawn_floating_text(floating_texts, fx, fy, "MISS!", GRAY);
+                        }
+                    }
                     enemy_index++;
                 } else {
                     if (player.is_alive()) {
@@ -224,6 +278,16 @@ int main() {
             e.draw_hp(tile_size);
         }
         player.draw(tile_size);
+
+        // draw floating texts — fade out over lifetime
+        for (auto& ft : floating_texts) {
+            float alpha   = 1.0f - (ft.timer / ft.duration);
+            float rise    = ft.timer * 30.0f;  // float upward
+            Color c       = Fade(ft.color, alpha);
+            int   text_x  = (int)(ft.x - MeasureText(ft.text.c_str(), 16) / 2);
+            int   text_y  = (int)(ft.y - rise);
+            DrawText(ft.text.c_str(), text_x, text_y, 16, c);
+        }
 
         if (hovered_enemy != nullptr)
             game_hud.draw_attack_preview(*hovered_enemy, hover_result, tile_size);

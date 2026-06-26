@@ -24,7 +24,7 @@ void hud::draw_unit_info(unit& u) {
 
     DrawText("HP", 12, bar_y + 50, 12, GRAY);
     DrawRectangle(30, bar_y + 52, 60, 8, DARKGRAY);
-    float hp_frac = (float)u.get_hp() / u.get_max_hp();
+    float hp_frac  = (float)u.get_hp() / u.get_max_hp();
     Color hp_color = hp_frac > 0.5f ? GREEN : (hp_frac > 0.25f ? ORANGE : RED);
     DrawRectangle(30, bar_y + 52, (int)(60 * hp_frac), 8, hp_color);
     DrawText(TextFormat("%d/%d", u.get_hp(), u.get_max_hp()), 96, bar_y + 50, 12, GRAY);
@@ -71,13 +71,11 @@ void hud::draw_attack_preview(unit& target, AttackResult& result, int tile_size)
     int tx = target.get_x_pos() * tile_size;
     int ty = target.get_y_pos() * tile_size;
 
-    // background panel above the target
     int panel_w = 200;
-    int panel_h = 90;
+    int panel_h = 100;
     int px      = tx - panel_w / 2 + tile_size / 2;
     int py      = ty - panel_h - 4;
 
-    // clamp to screen
     if (px < 0) px = 0;
     if (px + panel_w > screen_w) px = screen_w - panel_w;
     if (py < 0) py = ty + tile_size + 4;
@@ -85,23 +83,37 @@ void hud::draw_attack_preview(unit& target, AttackResult& result, int tile_size)
     DrawRectangle(px, py, panel_w, panel_h, ColorFromNormalized({0.1f, 0.1f, 0.1f, 0.9f}));
     DrawRectangleLines(px, py, panel_w, panel_h, GRAY);
 
-    // hit chance — color coded
     Color hit_color = result.hit_chance >= 70 ? GREEN :
                       result.hit_chance >= 40 ? YELLOW : RED;
-    DrawText(TextFormat("%d%% to hit", result.hit_chance), px + 8, py + 6, 14, hit_color);
-    DrawText(TextFormat("%d%% crit", result.crit_chance),  px + 8, py + 22, 11, ORANGE);
+    DrawText(TextFormat("%d%% to hit", result.hit_chance), px + 8, py + 6,  14, hit_color);
+    DrawText(TextFormat("%d%% crit",   result.crit_chance), px + 8, py + 22, 11, ORANGE);
 
-    // breakdown
-    DrawText(TextFormat("aim      %+d", result.aim_component),    px + 8, py + 38, 10, LIGHTGRAY);
-    if (result.flank_bonus > 0)
-        DrawText(TextFormat("flank    %+d", result.flank_bonus),  px + 8, py + 50, 10, GREEN);
-    if (result.range_penalty > 0)
-        DrawText(TextFormat("range    -%d", result.range_penalty),px + 8, py + 50 + (result.flank_bonus > 0 ? 12 : 0), 10, RED);
-    DrawText(TextFormat("defense  -%d", result.defense_penalty),  px + 8, py + 62, 10, LIGHTGRAY);
-    if (result.cover_penalty > 0)
-        DrawText(TextFormat("cover    -%d", result.cover_penalty),px + 8, py + 74, 10, SKYBLUE);
-    if (result.is_flanking)
-        DrawText("FLANKED",                                        px + 8, py + 74, 10, GREEN);
+    // breakdown — each line gets its own slot, no overlaps
+    int line_y = py + 38;
+    const int LINE_H = 12;
+
+    DrawText(TextFormat("aim      %+d", result.aim_component),    px + 8, line_y, 10, LIGHTGRAY);
+    line_y += LINE_H;
+
+    if (result.flank_bonus > 0) {
+        DrawText(TextFormat("flank    %+d", result.flank_bonus),  px + 8, line_y, 10, GREEN);
+        line_y += LINE_H;
+    }
+    if (result.range_penalty > 0) {
+        DrawText(TextFormat("range    -%d", result.range_penalty),px + 8, line_y, 10, RED);
+        line_y += LINE_H;
+    }
+
+    DrawText(TextFormat("defense  -%d", result.defense_penalty),  px + 8, line_y, 10, LIGHTGRAY);
+    line_y += LINE_H;
+
+    if (result.cover_penalty > 0) {
+        DrawText(TextFormat("cover    -%d", result.cover_penalty),px + 8, line_y, 10, SKYBLUE);
+        line_y += LINE_H;
+    }
+    if (result.is_flanking) {
+        DrawText("FLANKED",                                        px + 8, line_y, 10, GREEN);
+    }
 }
 
 bool hud::clicked_shoot(Vector2 mouse) {
