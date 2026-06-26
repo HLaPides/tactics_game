@@ -11,6 +11,7 @@ struct GameState {
     GameMap              map;
     unit                 player;
     std::vector<enemy>   enemies;
+    std::vector<bool>    spotted;   // spotted[i] mirrors enemies[i]
     GamePhase            phase   = GamePhase::PLAYER_TURN;
     ActionMode           mode    = ActionMode::NONE;
     AttackPreview        preview = {};

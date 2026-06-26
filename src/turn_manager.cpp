@@ -1,4 +1,5 @@
 #include "turn_manager.h"
+#include "combat.h"
 #include "raylib.h"
 #include <algorithm>
 
@@ -104,13 +105,17 @@ void TurnManager::apply_move(const Intent& intent, GameState& state) {
 }
 
 void TurnManager::apply_shoot(const Intent& intent, GameState& state) {
-    for (auto& e : state.enemies) {
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        auto& e = state.enemies[i];
         if (!e.is_alive()) continue;
+        if (!state.spotted[i]) continue;
         if (e.get_x_pos() != intent.target_x || e.get_y_pos() != intent.target_y) continue;
 
         int dist = std::max(abs(intent.target_x - state.player.get_x_pos()),
                             abs(intent.target_y - state.player.get_y_pos()));
         if (dist > state.player.get_shoot_range()) break;
+        if (!has_los(state.player.get_x_pos(), state.player.get_y_pos(),
+                     e.get_x_pos(), e.get_y_pos(), state.map)) break;
 
         AttackResult result = resolve_attack(state.player, e, state.map,
                                              state.player.get_shoot_damage());
@@ -128,8 +133,10 @@ void TurnManager::apply_shoot(const Intent& intent, GameState& state) {
 }
 
 void TurnManager::apply_melee(const Intent& intent, GameState& state) {
-    for (auto& e : state.enemies) {
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        auto& e = state.enemies[i];
         if (!e.is_alive()) continue;
+        if (!state.spotted[i]) continue;
         if (e.get_x_pos() != intent.target_x || e.get_y_pos() != intent.target_y) continue;
 
         int dist = std::max(abs(intent.target_x - state.player.get_x_pos()),

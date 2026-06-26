@@ -1,6 +1,34 @@
 #include "combat.h"
 #include "raylib.h"
 #include <algorithm>
+#include <cmath>
+
+bool has_los(int x0, int y0, int x1, int y1, GameMap& game_map) {
+    // Bresenham's line algorithm
+    int dx  =  abs(x1 - x0);
+    int dy  = -abs(y1 - y0);
+    int sx  = x0 < x1 ? 1 : -1;
+    int sy  = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    int x = x0;
+    int y = y0;
+
+    while (true) {
+        // reached target
+        if (x == x1 && y == y1) return true;
+
+        // check if this tile blocks LOS — skip start tile
+        if (!(x == x0 && y == y0)) {
+            Tile t = game_map.get_tile(x, y);
+            if (t.type == TILE_WALL) return false;
+        }
+
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x += sx; }
+        if (e2 <= dx) { err += dx; y += sy; }
+    }
+}
 
 CoverResult get_cover(unit& attacker, unit& target, GameMap& game_map) {
     int tx = target.get_x_pos();
@@ -79,7 +107,6 @@ AttackResult calculate_odds(unit& attacker, unit& target, GameMap& game_map, int
     result.hit_chance = std::max(1, std::min(99, result.hit_chance));
     result.crit_chance = cover.flanked ? 15 : 5;
 
-    // no roll — hit/crit/damage left at zero defaults
     return result;
 }
 

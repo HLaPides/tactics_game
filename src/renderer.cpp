@@ -87,20 +87,21 @@ void Renderer::draw_target_highlights(const GameState& state) {
 void Renderer::draw_units(const GameState& state) {
     int tile_size = config.tile_size;
 
-    for (const auto& e : state.enemies) {
-        if (!e.is_alive()) continue;
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        if (!state.enemies[i].is_alive()) continue;
+        if (!state.spotted[i]) continue;  // not spotted — don't draw
+
+        const enemy& e = state.enemies[i];
         int x = e.get_x_pos() * tile_size;
         int y = e.get_y_pos() * tile_size;
         DrawRectangle(x, y, tile_size, tile_size, BLUE);
 
-        // HP pips above enemy
-        for (int i = 0; i < e.get_max_hp(); i++) {
-            Color pip = i < e.get_hp() ? GREEN : DARKGRAY;
-            DrawRectangle(x + 4 + i * 10, y - 10, 8, 6, pip);
+        for (int j = 0; j < e.get_max_hp(); j++) {
+            Color pip = j < e.get_hp() ? GREEN : DARKGRAY;
+            DrawRectangle(x + 4 + j * 10, y - 10, 8, 6, pip);
         }
     }
 
-    // player
     DrawRectangle(state.player.get_x_pos() * tile_size,
                   state.player.get_y_pos() * tile_size,
                   tile_size, tile_size, RED);

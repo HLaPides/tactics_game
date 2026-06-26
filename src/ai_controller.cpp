@@ -18,6 +18,15 @@ void AIController::take_best_action(enemy& e, unit& player, std::vector<enemy>& 
     int py   = player.get_y_pos();
     int dist = std::max(abs(e.get_x_pos() - px), abs(e.get_y_pos() - py));
 
+    bool can_see_player = dist <= e.get_sight_range() &&
+                          has_los(e.get_x_pos(), e.get_y_pos(), px, py, game_map);
+
+    if (!can_see_player) {
+        // no LOS — hold position, do nothing but use the action
+        e.use_action();
+        return;
+    }
+
     if (dist <= 1) {
         AttackResult result = resolve_attack(e, player, game_map, e.get_melee_damage());
         player.take_damage(result.damage);
@@ -26,7 +35,8 @@ void AIController::take_best_action(enemy& e, unit& player, std::vector<enemy>& 
             texts.spawn(player.get_x_pos(), player.get_y_pos(), "CRIT!", YELLOW);
         else if (!result.hit)
             texts.spawn(player.get_x_pos(), player.get_y_pos(), "MISS!", GRAY);
-    } else if (dist <= e.get_shoot_range()) {
+    } else if (dist <= e.get_shoot_range() &&
+               has_los(e.get_x_pos(), e.get_y_pos(), px, py, game_map)) {
         AttackResult result = resolve_attack(e, player, game_map, e.get_shoot_damage());
         player.take_damage(result.damage);
         e.use_action();
@@ -42,7 +52,8 @@ void AIController::take_best_action(enemy& e, unit& player, std::vector<enemy>& 
         if (py > e.get_y_pos()) step_y++;
         else if (py < e.get_y_pos()) step_y--;
 
-        if (!tile_occupied(step_x, step_y, player, enemies, e) && game_map.is_walkable(step_x, step_y))
+        if (!tile_occupied(step_x, step_y, player, enemies, e) &&
+            game_map.is_walkable(step_x, step_y))
             e.set_position(step_x, step_y);
         e.use_action();
     }

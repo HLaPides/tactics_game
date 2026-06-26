@@ -13,6 +13,7 @@ unit::unit(int x_pos, int y_pos, UnitStats s) {
     shoot_range       = s.shoot_range;
     shoot_damage      = s.shoot_damage;
     melee_damage      = s.melee_damage;
+    sight_range       = s.sight_range;
 }
 
 int  unit::get_x_pos()        const { return x_position; }
@@ -26,6 +27,7 @@ int  unit::get_defense()      const { return defense; }
 int  unit::get_shoot_range()  const { return shoot_range; }
 int  unit::get_shoot_damage() const { return shoot_damage; }
 int  unit::get_melee_damage() const { return melee_damage; }
+int  unit::get_sight_range()  const { return sight_range; }
 bool unit::is_alive()         const { return hp > 0; }
 
 void unit::use_action() { 

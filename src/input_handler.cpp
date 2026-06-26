@@ -82,21 +82,23 @@ void InputHandler::update_preview(GameState& state) {
     int mx = mouse_tile_x(mouse);
     int my = mouse_tile_y(mouse);
 
-    for (auto& e : state.enemies) {
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        auto& e = state.enemies[i];
         if (!e.is_alive()) continue;
+        if (!state.spotted[i]) continue;  // can't target unspotted enemies
         if (e.get_x_pos() != mx || e.get_y_pos() != my) continue;
 
         int dist  = std::max(abs(mx - state.player.get_x_pos()),
-                             abs(my - state.player.get_y_pos()));
+                            abs(my - state.player.get_y_pos()));
         int range = (state.mode == ActionMode::SHOOT) ? state.player.get_shoot_range() : 1;
 
-        if (dist <= range) {
+        if (dist <= range && has_los(state.player.get_x_pos(), state.player.get_y_pos(),
+                                    e.get_x_pos(), e.get_y_pos(), state.map)) {
             int base_dmg = (state.mode == ActionMode::SHOOT)
-                         ? state.player.get_shoot_damage()
-                         : state.player.get_melee_damage();
+                        ? state.player.get_shoot_damage()
+                        : state.player.get_melee_damage();
             state.preview.active = true;
             state.preview.target = &e;
-            // calculate_odds — no random rolls wasted on preview
             state.preview.result = calculate_odds(state.player, e, state.map, base_dmg);
         }
         break;

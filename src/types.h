@@ -19,6 +19,7 @@ struct UnitStats {
     int shoot_range  = 4;
     int shoot_damage = 1;
     int melee_damage = 1;
+    int sight_range  = 8;
 };
 
 struct AppConfig {

@@ -16,6 +16,7 @@ public:
     int  get_shoot_range()  const;
     int  get_shoot_damage() const;
     int  get_melee_damage() const;
+    int  get_sight_range()  const;
     bool is_alive()         const;
     void use_action();
     void reset_actions();
@@ -33,5 +34,6 @@ private:
     int shoot_range;
     int shoot_damage;
     int melee_damage;
+    int sight_range;
     static const int MAX_ACTIONS = 2;
 };

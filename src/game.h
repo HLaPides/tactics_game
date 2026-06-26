@@ -20,6 +20,7 @@ private:
     Renderer       renderer;
 
     bool load_level(const std::string& level_dir);
+    void update_visibility();
     void update(float dt);
     void draw();
 };

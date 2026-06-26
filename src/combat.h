@@ -27,6 +27,7 @@ struct AttackPreview {
     AttackResult result = {};
 };
 
+bool         has_los(int x0, int y0, int x1, int y1, GameMap& game_map);
 CoverResult  get_cover(unit& attacker, unit& target, GameMap& game_map);
 AttackResult calculate_odds(unit& attacker, unit& target, GameMap& game_map, int base_damage);
 AttackResult resolve_attack(unit& attacker, unit& target, GameMap& game_map, int base_damage);
