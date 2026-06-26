@@ -11,7 +11,6 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
     int  best_penalty = 0;
     bool flanked      = false;
 
-    // north neighbour — target shelters behind its SOUTH face
     Tile north = game_map.get_tile(tx, ty - 1);
     if (north.cover != COVER_NONE && north.faces.south) {
         if (ay < ty) {
@@ -22,7 +21,6 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
         }
     }
 
-    // south neighbour — target shelters behind its NORTH face
     Tile south = game_map.get_tile(tx, ty + 1);
     if (south.cover != COVER_NONE && south.faces.north) {
         if (ay > ty) {
@@ -33,7 +31,6 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
         }
     }
 
-    // west neighbour — target shelters behind its EAST face
     Tile west = game_map.get_tile(tx - 1, ty);
     if (west.cover != COVER_NONE && west.faces.east) {
         if (ax < tx) {
@@ -44,7 +41,6 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
         }
     }
 
-    // east neighbour — target shelters behind its WEST face
     Tile east = game_map.get_tile(tx + 1, ty);
     if (east.cover != COVER_NONE && east.faces.west) {
         if (ax > tx) {
@@ -56,7 +52,6 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
     }
 
     if (flanked) best_penalty = 0;
-
     return { best_penalty, flanked };
 }
 

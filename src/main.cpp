@@ -14,6 +14,7 @@ int main() {
     const int GRID_H     = 640;
 
     InitWindow(SCREEN_W, SCREEN_H, "Xcom Knockoff");
+    PollInputEvents();
 
     const char* levels[] = { "levels/ship_01.txt" };
     int level_count      = sizeof(levels) / sizeof(levels[0]);
@@ -53,9 +54,8 @@ int main() {
     float       enemy_timer = 0.0f;
     const float ENEMY_DELAY = 0.4f;
 
-    // hover preview state
-    enemy*       hovered_enemy  = nullptr;
-    AttackResult hover_result   = {};
+    enemy*       hovered_enemy = nullptr;
+    AttackResult hover_result  = {};
 
     while (!WindowShouldClose()) {
 
@@ -65,14 +65,13 @@ int main() {
         int     my            = (int)(mouse.y / tile_size);
         bool    mouse_on_grid = mouse.y < GRID_H;
 
-        // update hover preview
         hovered_enemy = nullptr;
         if ((mode == MODE_SHOOT || mode == MODE_MELEE) && mouse_on_grid) {
             for (auto& e : enemies) {
                 if (!e.is_alive()) continue;
                 if (e.get_x_pos() == mx && e.get_y_pos() == my) {
-                    int dist = std::max(abs(mx - player.get_x_pos()),
-                                        abs(my - player.get_y_pos()));
+                    int dist  = std::max(abs(mx - player.get_x_pos()),
+                                         abs(my - player.get_y_pos()));
                     int range = (mode == MODE_SHOOT) ? player.get_shoot_range() : 1;
                     if (dist <= range) {
                         hovered_enemy = &e;
@@ -95,7 +94,7 @@ int main() {
                 if (game_hud.clicked_melee(mouse) && player.get_actions() > 0)
                     mode = (mode == MODE_MELEE) ? MODE_NONE : MODE_MELEE;
 
-                if (game_hud.clicked_end_turn(mouse)) {
+                if (game_hud.clicked_end_turn(mouse) && state == PLAYER_TURN) {
                     mode        = MODE_NONE;
                     state       = ENEMY_TURN;
                     enemy_index = 0;
@@ -174,7 +173,7 @@ int main() {
                     enemy_index++;
 
                 if (enemy_index < (int)enemies.size()) {
-                    enemies[enemy_index].act(player, enemies);
+                    enemies[enemy_index].act(player, enemies, game_map);
                     enemy_index++;
                 } else {
                     if (player.is_alive()) {
@@ -226,7 +225,6 @@ int main() {
         }
         player.draw(tile_size);
 
-        // draw hover preview
         if (hovered_enemy != nullptr)
             game_hud.draw_attack_preview(*hovered_enemy, hover_result, tile_size);
 
