@@ -1,6 +1,6 @@
 #include "combat.h"
+#include "raylib.h"
 #include <algorithm>
-#include <cstdlib>
 
 CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
     int tx = target.get_x_pos();
@@ -8,26 +8,23 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
     int ax = attacker.get_x_pos();
     int ay = attacker.get_y_pos();
 
-    // check all four neighbours of the target for cover tiles
     int  best_penalty = 0;
     bool flanked      = false;
 
-    // north neighbour (row - 1) — covers shots from the north (attacker_y < target_y)
+    // north neighbour — target shelters behind its SOUTH face
     Tile north = game_map.get_tile(tx, ty - 1);
-    if (north.cover != COVER_NONE && north.faces.north) {
+    if (north.cover != COVER_NONE && north.faces.south) {
         if (ay < ty) {
-            // attacker is to the north — cover applies
             int pen = (north.cover == COVER_FULL) ? 40 : 20;
             if (pen > best_penalty) best_penalty = pen;
         } else if (ay > ty) {
-            // attacker is to the south — flanking
             flanked = true;
         }
     }
 
-    // south neighbour (row + 1) — covers shots from the south (attacker_y > target_y)
+    // south neighbour — target shelters behind its NORTH face
     Tile south = game_map.get_tile(tx, ty + 1);
-    if (south.cover != COVER_NONE && south.faces.south) {
+    if (south.cover != COVER_NONE && south.faces.north) {
         if (ay > ty) {
             int pen = (south.cover == COVER_FULL) ? 40 : 20;
             if (pen > best_penalty) best_penalty = pen;
@@ -36,9 +33,9 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
         }
     }
 
-    // west neighbour (col - 1) — covers shots from the west (attacker_x < target_x)
+    // west neighbour — target shelters behind its EAST face
     Tile west = game_map.get_tile(tx - 1, ty);
-    if (west.cover != COVER_NONE && west.faces.west) {
+    if (west.cover != COVER_NONE && west.faces.east) {
         if (ax < tx) {
             int pen = (west.cover == COVER_FULL) ? 40 : 20;
             if (pen > best_penalty) best_penalty = pen;
@@ -47,9 +44,9 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
         }
     }
 
-    // east neighbour (col + 1) — covers shots from the east (attacker_x > target_x)
+    // east neighbour — target shelters behind its WEST face
     Tile east = game_map.get_tile(tx + 1, ty);
-    if (east.cover != COVER_NONE && east.faces.east) {
+    if (east.cover != COVER_NONE && east.faces.west) {
         if (ax > tx) {
             int pen = (east.cover == COVER_FULL) ? 40 : 20;
             if (pen > best_penalty) best_penalty = pen;
@@ -58,7 +55,6 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
         }
     }
 
-    // flanking negates cover
     if (flanked) best_penalty = 0;
 
     return { best_penalty, flanked };
@@ -67,23 +63,19 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
 AttackResult resolve_attack(unit& attacker, unit& target, map& game_map, int base_damage) {
     AttackResult result = {};
 
-    // range penalty
-    int dist = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
-                        abs(attacker.get_y_pos() - target.get_y_pos()));
-    int half_range     = attacker.get_shoot_range() / 2;
+    int dist       = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
+                              abs(attacker.get_y_pos() - target.get_y_pos()));
+    int half_range = attacker.get_shoot_range() / 2;
     result.range_penalty = (dist > half_range) ? 10 : 0;
 
-    // cover and flank
-    CoverResult cover      = get_cover(attacker, target, game_map);
-    result.cover_penalty   = cover.penalty;
-    result.is_flanking     = cover.flanked;
-    result.flank_bonus     = cover.flanked ? 30 : 0;
+    CoverResult cover    = get_cover(attacker, target, game_map);
+    result.cover_penalty = cover.penalty;
+    result.is_flanking   = cover.flanked;
+    result.flank_bonus   = cover.flanked ? 30 : 0;
 
-    // components
-    result.aim_component     = attacker.get_aim();
-    result.defense_penalty   = target.get_defense();
+    result.aim_component   = attacker.get_aim();
+    result.defense_penalty = target.get_defense();
 
-    // final hit chance clamped 1-99
     result.hit_chance = result.aim_component
                       + result.flank_bonus
                       - result.range_penalty
@@ -91,10 +83,8 @@ AttackResult resolve_attack(unit& attacker, unit& target, map& game_map, int bas
                       - result.cover_penalty;
     result.hit_chance = std::max(1, std::min(99, result.hit_chance));
 
-    // crit chance
     result.crit_chance = cover.flanked ? 15 : 5;
 
-    // roll
     int hit_roll  = GetRandomValue(1, 100);
     int crit_roll = GetRandomValue(1, 100);
     result.hit    = hit_roll <= result.hit_chance;

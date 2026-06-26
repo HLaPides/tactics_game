@@ -1,4 +1,5 @@
 #include "enemy.h"
+#include "combat.h"
 #include "raylib.h"
 #include <algorithm>
 
@@ -15,21 +16,23 @@ bool enemy::tile_occupied(int x, int y, unit& player, std::vector<enemy>& enemie
     return false;
 }
 
-void enemy::act(unit& player, std::vector<enemy>& enemies) {
-    if (!is_alive()) return;
-
+void enemy::take_best_action(unit& player, std::vector<enemy>& enemies, map& game_map) {
     int px   = player.get_x_pos();
     int py   = player.get_y_pos();
     int dist = std::max(abs(get_x_pos() - px), abs(get_y_pos() - py));
 
-    // action 1 — melee if adjacent, shoot if in range, else move
     if (dist <= 1) {
-        player.take_damage(get_melee_damage());
+        // melee — run through resolve_attack
+        AttackResult result = resolve_attack(*this, player, game_map, get_melee_damage());
+        player.take_damage(result.damage);
         use_action();
     } else if (dist <= get_shoot_range()) {
-        player.take_damage(get_shoot_damage());
+        // shoot — run through resolve_attack
+        AttackResult result = resolve_attack(*this, player, game_map, get_shoot_damage());
+        player.take_damage(result.damage);
         use_action();
     } else {
+        // move toward player, respecting walkability and occupancy
         int step_x = get_x_pos();
         int step_y = get_y_pos();
         if (px > get_x_pos()) step_x++;
@@ -37,36 +40,18 @@ void enemy::act(unit& player, std::vector<enemy>& enemies) {
         if (py > get_y_pos()) step_y++;
         else if (py < get_y_pos()) step_y--;
 
-        if (!tile_occupied(step_x, step_y, player, enemies)) {
+        if (!tile_occupied(step_x, step_y, player, enemies) && game_map.is_walkable(step_x, step_y)) {
             set_position(step_x, step_y);
         }
         use_action();
     }
+}
 
-    // action 2
-    dist = std::max(abs(get_x_pos() - px), abs(get_y_pos() - py));
-    if (get_actions() > 0) {
-        if (dist <= 1) {
-            player.take_damage(get_melee_damage());
-            use_action();
-        } else if (dist <= get_shoot_range()) {
-            player.take_damage(get_shoot_damage());
-            use_action();
-        } else {
-            int step_x = get_x_pos();
-            int step_y = get_y_pos();
-            if (px > get_x_pos()) step_x++;
-            else if (px < get_x_pos()) step_x--;
-            if (py > get_y_pos()) step_y++;
-            else if (py < get_y_pos()) step_y--;
-
-            if (!tile_occupied(step_x, step_y, player, enemies)) {
-                set_position(step_x, step_y);
-            }
-            use_action();
-        }
-    }
-
+void enemy::act(unit& player, std::vector<enemy>& enemies, map& game_map) {
+    if (!is_alive()) return;
+    take_best_action(player, enemies, game_map);
+    if (get_actions() > 0)
+        take_best_action(player, enemies, game_map);
     reset_actions();
 }
 
