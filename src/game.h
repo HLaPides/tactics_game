@@ -21,6 +21,7 @@ private:
 
     bool load_level(const std::string& level_dir);
     void update_visibility();
+    void update_camera();
     void check_win_conditions();
     void update(float dt);
     void draw();

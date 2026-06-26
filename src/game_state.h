@@ -5,6 +5,7 @@
 #include "combat.h"
 #include "floating_text.h"
 #include "types.h"
+#include "raylib.h"
 #include <vector>
 #include <string>
 
@@ -22,4 +23,5 @@ struct GameState {
     AttackPreview            preview    = {};
     FloatingTextManager      floating_texts;
     WinState                 win_state  = WinState::ONGOING;
+    Camera2D                 camera     = { {0,0}, {0,0}, 0.0f, 1.0f };
 };

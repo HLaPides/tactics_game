@@ -12,8 +12,6 @@ void TurnManager::apply_player_intent(const Intent& intent, GameState& state) {
     if (state.phase != GamePhase::PLAYER_TURN) return;
     if (state.players.empty()) return;
 
-    unit& active = state.players[state.selected_player];
-
     switch (intent.type) {
         case IntentType::Cancel:
             state.mode    = ActionMode::NONE;
@@ -24,7 +22,7 @@ void TurnManager::apply_player_intent(const Intent& intent, GameState& state) {
             state.mode    = ActionMode::NONE;
             state.preview = {};
             start_enemy_turn(state);
-            break;
+            return;
 
         case IntentType::Move:
             apply_move(intent, state);
@@ -42,16 +40,37 @@ void TurnManager::apply_player_intent(const Intent& intent, GameState& state) {
             break;
     }
 
-    // re-fetch active since vector may have been modified
-    unit& active2 = state.players[state.selected_player];
-
-    if (active2.get_actions() <= 0) {
+    // check if ALL living players are out of actions
+    bool any_actions_left = false;
+    for (auto& p : state.players) {
+        if (p.is_alive() && p.get_actions() > 0) {
+            any_actions_left = true;
+            break;
+        }
+    }
+    if (!any_actions_left) {
         state.mode    = ActionMode::NONE;
         state.preview = {};
         start_enemy_turn(state);
+        return;
     }
 
-    if (!active2.is_alive()) {
+    // if selected unit is out of actions, auto-switch to next unit with actions
+    unit& active = state.players[state.selected_player];
+    if (active.get_actions() <= 0) {
+        for (int i = 1; i <= (int)state.players.size(); i++) {
+            int idx = (state.selected_player + i) % (int)state.players.size();
+            if (state.players[idx].is_alive() && state.players[idx].get_actions() > 0) {
+                state.selected_player = idx;
+                state.mode    = ActionMode::NONE;
+                state.preview = {};
+                break;
+            }
+        }
+    }
+
+    // check player death
+    if (!state.players[state.selected_player].is_alive()) {
         state.mode    = ActionMode::NONE;
         state.preview = {};
         state.phase   = GamePhase::ENEMY_TURN;
@@ -71,7 +90,6 @@ void TurnManager::update_enemy_turn(float dt, GameState& state, AIController& ai
         enemy_index++;
 
     if (enemy_index < (int)state.enemies.size()) {
-        // AI targets the selected player — could be extended to target nearest
         ai.act(state.enemies[enemy_index], state.players[state.selected_player],
                state.enemies, state.map, state.floating_texts);
         enemy_index++;
@@ -87,7 +105,6 @@ void TurnManager::start_enemy_turn(GameState& state) {
 }
 
 void TurnManager::end_enemy_turn(GameState& state) {
-    // reset actions for all living players
     bool any_alive = false;
     for (auto& p : state.players) {
         if (p.is_alive()) {
@@ -103,22 +120,27 @@ void TurnManager::apply_move(const Intent& intent, GameState& state) {
     unit& active = state.players[state.selected_player];
     if (active.get_actions() <= 0) return;
 
-    int dist = std::max(abs(intent.target_x - active.get_x_pos()),
-                        abs(intent.target_y - active.get_y_pos()));
+    int tx = intent.target_x;
+    int ty = intent.target_y;
+
+    // bounds check
+    if (tx < 0 || ty < 0 || tx >= state.map.getCols() || ty >= state.map.getRows()) return;
+
+    int dist = std::max(abs(tx - active.get_x_pos()),
+                        abs(ty - active.get_y_pos()));
 
     bool tile_blocked = false;
     for (auto& e : state.enemies) {
-        if (e.is_alive() && e.get_x_pos() == intent.target_x && e.get_y_pos() == intent.target_y) {
+        if (e.is_alive() && e.get_x_pos() == tx && e.get_y_pos() == ty) {
             tile_blocked = true;
             break;
         }
     }
-    // also block tiles occupied by other players
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (i == state.selected_player) continue;
         if (state.players[i].is_alive() &&
-            state.players[i].get_x_pos() == intent.target_x &&
-            state.players[i].get_y_pos() == intent.target_y) {
+            state.players[i].get_x_pos() == tx &&
+            state.players[i].get_y_pos() == ty) {
             tile_blocked = true;
             break;
         }
@@ -126,8 +148,8 @@ void TurnManager::apply_move(const Intent& intent, GameState& state) {
 
     if (dist <= active.get_movement()
         && !tile_blocked
-        && state.map.is_walkable(intent.target_x, intent.target_y)) {
-        active.set_position(intent.target_x, intent.target_y);
+        && state.map.is_walkable(tx, ty)) {
+        active.set_position(tx, ty);
         active.use_action();
     }
 }

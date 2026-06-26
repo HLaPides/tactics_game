@@ -6,12 +6,13 @@
 enum class GamePhase  { PLAYER_TURN, ENEMY_TURN };
 enum class ActionMode { NONE, SHOOT, MELEE, HEAL };
 
-enum class IntentType { Move, Shoot, Melee, Heal, EndTurn, Cancel };
+enum class IntentType { Move, Shoot, Melee, Heal, EndTurn, Cancel, SelectUnit };
 
 struct Intent {
     IntentType type;
     int        target_x = 0;
     int        target_y = 0;
+    int        value    = 0;  // used for SelectUnit — holds player index
 };
 
 struct UnitStats {

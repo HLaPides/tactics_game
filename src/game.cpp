@@ -26,7 +26,6 @@ bool game::load_level(const std::string& level_dir) {
     int chosen = GetRandomValue(0, (int)levels.size() - 1);
     if (!state.map.load(levels[chosen])) return false;
 
-    // player unit lookup — add new types by extending this table
     std::unordered_map<char, std::pair<UnitStats, std::string>> player_types = {
         { '1', { UnitPresets::Bosun(),        "Bosun"        } },
         { '2', { UnitPresets::Sharpshooter(), "Sharpshooter" } },
@@ -34,7 +33,6 @@ bool game::load_level(const std::string& level_dir) {
         { '4', { UnitPresets::Swashbuckler(), "Swashbuckler" } },
     };
 
-    // enemy unit lookup — add new types by extending this table
     std::unordered_map<char, UnitStats> enemy_types = {
         { 'E', UnitPresets::Soldier() },
         { 'G', UnitPresets::Guard()   },
@@ -46,7 +44,6 @@ bool game::load_level(const std::string& level_dir) {
 
     if (player_spawns.empty()) return false;
 
-    // sort player spawns by type digit so unit 1 always spawns before 2 etc.
     std::sort(player_spawns.begin(), player_spawns.end(),
               [](const SpawnPoint& a, const SpawnPoint& b) {
                   return a.type < b.type;
@@ -69,34 +66,60 @@ bool game::load_level(const std::string& level_dir) {
 
     state.spotted.assign(state.enemies.size(), false);
     state.selected_player = 0;
+
+    // init camera
+    state.camera.zoom   = 1.0f;
+    state.camera.rotation = 0.0f;
+    update_camera();
     update_visibility();
     return true;
 }
 
+void game::update_camera() {
+    if (state.players.empty()) return;
+
+    const unit& active    = state.players[state.selected_player];
+    int         tile_size = config.tile_size;
+    int         map_w     = state.map.getCols() * tile_size;
+
+    // target camera x — center on active unit
+    float target_x = active.get_x_pos() * tile_size + tile_size / 2.0f;
+
+    // clamp so camera doesn't show beyond map edges
+    float half_w = config.screen_w / 2.0f;
+    target_x = std::max(half_w, std::min(target_x, (float)map_w - half_w));
+
+    state.camera.target = { target_x, config.grid_h / 2.0f };
+    state.camera.offset = { config.screen_w / 2.0f, config.grid_h / 2.0f };
+}
+
 void game::update_visibility() {
     if (state.players.empty()) return;
-    unit& active = state.players[state.selected_player];
-    int px = active.get_x_pos();
-    int py = active.get_y_pos();
-    int sr = active.get_sight_range();
 
-    for (int i = 0; i < (int)state.enemies.size(); i++) {
-        if (state.spotted[i]) continue;
-        if (!state.enemies[i].is_alive()) continue;
+    // check visibility from all living players
+    for (auto& player : state.players) {
+        if (!player.is_alive()) continue;
+        int px = player.get_x_pos();
+        int py = player.get_y_pos();
+        int sr = player.get_sight_range();
 
-        int ex   = state.enemies[i].get_x_pos();
-        int ey   = state.enemies[i].get_y_pos();
-        int dist = std::max(abs(ex - px), abs(ey - py));
+        for (int i = 0; i < (int)state.enemies.size(); i++) {
+            if (state.spotted[i]) continue;
+            if (!state.enemies[i].is_alive()) continue;
 
-        if (dist <= sr && has_los(px, py, ex, ey, state.map))
-            state.spotted[i] = true;
+            int ex   = state.enemies[i].get_x_pos();
+            int ey   = state.enemies[i].get_y_pos();
+            int dist = std::max(abs(ex - px), abs(ey - py));
+
+            if (dist <= sr && has_los(px, py, ex, ey, state.map))
+                state.spotted[i] = true;
+        }
     }
 }
 
 void game::check_win_conditions() {
     if (state.win_state != WinState::ONGOING) return;
 
-    // defeat — all players dead
     bool any_alive = false;
     for (auto& p : state.players) {
         if (p.is_alive()) { any_alive = true; break; }
@@ -106,7 +129,6 @@ void game::check_win_conditions() {
         return;
     }
 
-    // victory — any living player on objective tile
     for (auto& p : state.players) {
         if (!p.is_alive()) continue;
         if (state.map.is_objective(p.get_x_pos(), p.get_y_pos())) {
@@ -124,14 +146,24 @@ void game::update(float dt) {
 
     if (state.phase == GamePhase::PLAYER_TURN) {
         auto intent = input.poll(state);
-        if (intent.has_value())
-            turns.apply_player_intent(intent.value(), state);
+        if (intent.has_value()) {
+            if (intent->type == IntentType::SelectUnit) {
+                state.selected_player = intent->value;
+                state.mode    = ActionMode::NONE;
+                state.preview = {};
+                update_camera();
+            } else {
+                turns.apply_player_intent(intent.value(), state);
+            }
+        }
+        update_camera();
         update_visibility();
         check_win_conditions();
     }
 
     if (state.phase == GamePhase::ENEMY_TURN) {
         turns.update_enemy_turn(dt, state, ai);
+        update_camera();
         update_visibility();
         check_win_conditions();
     }

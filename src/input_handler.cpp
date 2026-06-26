@@ -5,8 +5,12 @@
 
 InputHandler::InputHandler(const AppConfig& cfg) : config(cfg) {}
 
-int  InputHandler::mouse_tile_x(Vector2 mouse) const { return (int)(mouse.x / config.tile_size); }
-int  InputHandler::mouse_tile_y(Vector2 mouse) const { return (int)(mouse.y / config.tile_size); }
+int  InputHandler::mouse_tile_x(Vector2 mouse, const Camera2D& cam) const {
+    return (int)(GetScreenToWorld2D(mouse, cam).x / config.tile_size);
+}
+int  InputHandler::mouse_tile_y(Vector2 mouse, const Camera2D& cam) const {
+    return (int)(GetScreenToWorld2D(mouse, cam).y / config.tile_size);
+}
 bool InputHandler::mouse_on_grid(Vector2 mouse) const { return mouse.y < config.grid_h; }
 
 bool InputHandler::clicked_shoot(Vector2 mouse) const {
@@ -38,6 +42,20 @@ std::optional<Intent> InputHandler::poll(const GameState& state) {
     const unit& active = state.players[state.selected_player];
     Vector2 mouse = GetMousePosition();
 
+    // Tab cycles through living players
+    if (IsKeyPressed(KEY_TAB) && state.phase == GamePhase::PLAYER_TURN) {
+        int next = state.selected_player;
+        for (int i = 1; i <= (int)state.players.size(); i++) {
+            int idx = (state.selected_player + i) % (int)state.players.size();
+            if (state.players[idx].is_alive()) {
+                next = idx;
+                break;
+            }
+        }
+        if (next != state.selected_player)
+            return Intent{ IntentType::SelectUnit, 0, 0, next };
+    }
+
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || IsKeyPressed(KEY_ESCAPE)) {
         if (state.mode != ActionMode::NONE)
             return Intent{ IntentType::Cancel };
@@ -55,10 +73,18 @@ std::optional<Intent> InputHandler::poll(const GameState& state) {
         return std::nullopt;
     }
 
-    int mx = mouse_tile_x(mouse);
-    int my = mouse_tile_y(mouse);
+    int mx = mouse_tile_x(mouse, state.camera);
+    int my = mouse_tile_y(mouse, state.camera);
 
     if (state.phase != GamePhase::PLAYER_TURN) return std::nullopt;
+
+    // click on another player unit to select them
+    for (int i = 0; i < (int)state.players.size(); i++) {
+        if (i == state.selected_player) continue;
+        if (!state.players[i].is_alive()) continue;
+        if (state.players[i].get_x_pos() == mx && state.players[i].get_y_pos() == my)
+            return Intent{ IntentType::SelectUnit, 0, 0, i };
+    }
 
     if (state.mode == ActionMode::SHOOT) return Intent{ IntentType::Shoot, mx, my };
     if (state.mode == ActionMode::MELEE) return Intent{ IntentType::Melee, mx, my };
@@ -67,9 +93,9 @@ std::optional<Intent> InputHandler::poll(const GameState& state) {
 
 void InputHandler::update_preview(GameState& state) {
     if (state.players.empty()) return;
-    unit& active = state.players[state.selected_player];
-    Vector2 mouse = GetMousePosition();
-    state.preview = {};
+    unit&   active = state.players[state.selected_player];
+    Vector2 mouse  = GetMousePosition();
+    state.preview  = {};
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !mouse_on_grid(mouse)
         && state.phase == GamePhase::PLAYER_TURN && active.get_actions() > 0) {
@@ -82,8 +108,8 @@ void InputHandler::update_preview(GameState& state) {
 
     if (!mouse_on_grid(mouse) || state.mode == ActionMode::NONE) return;
 
-    int mx = mouse_tile_x(mouse);
-    int my = mouse_tile_y(mouse);
+    int mx = mouse_tile_x(mouse, state.camera);
+    int my = mouse_tile_y(mouse, state.camera);
 
     for (int i = 0; i < (int)state.enemies.size(); i++) {
         auto& e = state.enemies[i];

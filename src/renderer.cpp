@@ -7,14 +7,21 @@ Renderer::Renderer(const AppConfig& cfg) : config(cfg) {}
 void Renderer::draw_frame(const GameState& state) {
     BeginDrawing();
     ClearBackground(DARKGRAY);
+
+    // world space — scrolls with camera
+    BeginMode2D(state.camera);
     draw_map(state);
     draw_range_overlay(state);
     draw_target_highlights(state);
     draw_units(state);
     draw_floating_texts(state);
     draw_attack_preview(state);
-    draw_game_over(state);
+    EndMode2D();
+
+    // screen space — fixed position
     draw_hud(state);
+    draw_game_over(state);
+
     EndDrawing();
 }
 
