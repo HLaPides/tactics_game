@@ -1,6 +1,5 @@
 #pragma once
 #include "units/unit.h"
-#include "raylib.h"
 #include "map.h"
 
 struct AttackResult {
@@ -18,9 +17,16 @@ struct AttackResult {
 };
 
 struct CoverResult {
-    int  penalty;   // 0, 20, or 40
+    int  penalty;
     bool flanked;
 };
 
-CoverResult get_cover(unit& attacker, unit& target, map& game_map);
-AttackResult resolve_attack(unit& attacker, unit& target, map& game_map, int base_damage);
+struct AttackPreview {
+    bool         active = false;
+    unit*        target = nullptr;
+    AttackResult result = {};
+};
+
+CoverResult  get_cover(unit& attacker, unit& target, GameMap& game_map);
+AttackResult calculate_odds(unit& attacker, unit& target, GameMap& game_map, int base_damage);
+AttackResult resolve_attack(unit& attacker, unit& target, GameMap& game_map, int base_damage);

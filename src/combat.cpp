@@ -2,7 +2,7 @@
 #include "raylib.h"
 #include <algorithm>
 
-CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
+CoverResult get_cover(unit& attacker, unit& target, GameMap& game_map) {
     int tx = target.get_x_pos();
     int ty = target.get_y_pos();
     int ax = attacker.get_x_pos();
@@ -55,7 +55,7 @@ CoverResult get_cover(unit& attacker, unit& target, map& game_map) {
     return { best_penalty, flanked };
 }
 
-AttackResult resolve_attack(unit& attacker, unit& target, map& game_map, int base_damage) {
+AttackResult calculate_odds(unit& attacker, unit& target, GameMap& game_map, int base_damage) {
     AttackResult result = {};
 
     int dist       = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
@@ -77,12 +77,18 @@ AttackResult resolve_attack(unit& attacker, unit& target, map& game_map, int bas
                       - result.defense_penalty
                       - result.cover_penalty;
     result.hit_chance = std::max(1, std::min(99, result.hit_chance));
-
     result.crit_chance = cover.flanked ? 15 : 5;
+
+    // no roll — hit/crit/damage left at zero defaults
+    return result;
+}
+
+AttackResult resolve_attack(unit& attacker, unit& target, GameMap& game_map, int base_damage) {
+    AttackResult result = calculate_odds(attacker, target, game_map, base_damage);
 
     int hit_roll  = GetRandomValue(1, 100);
     int crit_roll = GetRandomValue(1, 100);
-    result.hit    = hit_roll <= result.hit_chance;
+    result.hit    = hit_roll  <= result.hit_chance;
     result.crit   = result.hit && (crit_roll <= result.crit_chance);
     result.damage = result.hit ? (result.crit ? base_damage * 2 : base_damage) : 0;
 

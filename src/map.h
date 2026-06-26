@@ -16,20 +16,21 @@ struct Tile {
 
 struct SpawnPoint { int col, row; };
 
-class map {
+class GameMap {
 public:
-    map(int tile_size);
+    GameMap(int tile_size);
+    GameMap();
     bool load(const std::string& filepath);
-    void draw_map();
-    int  get_tile_size();
-    int  get_x_dimension();
-    int  get_y_dimension();
-    int  getCols();
-    int  getRows();
+    int  get_tile_size()   const;
+    int  get_x_dimension() const;
+    int  get_y_dimension() const;
+    int  getCols()         const;
+    int  getRows()         const;
     Tile get_tile(int col, int row);
     bool is_walkable(int col, int row);
     std::vector<SpawnPoint> get_player_spawns();
     std::vector<SpawnPoint> get_enemy_spawns();
+    const std::vector<std::vector<Tile>>& get_tiles() const;
 private:
     int tile_size;
     int cols;
@@ -37,5 +38,5 @@ private:
     std::vector<std::vector<Tile>> tiles;
     std::vector<SpawnPoint>        player_spawns;
     std::vector<SpawnPoint>        enemy_spawns;
-    Tile make_tile(char c);
+    static Tile make_tile(char c);
 };

@@ -1,15 +1,16 @@
 #include "map.h"
-#include "raylib.h"
 #include <fstream>
 #include <string>
 
-map::map(int tile_size) {
+GameMap::GameMap(int tile_size) {
     this->tile_size = tile_size;
-    this->cols      = 0;
-    this->rows      = 0;
+    cols            = 0;
+    rows            = 0;
 }
 
-Tile map::make_tile(char c) {
+GameMap::GameMap() : GameMap(32) {}
+
+Tile GameMap::make_tile(char c) {
     Tile t;
     switch (c) {
         case 'W':
@@ -40,7 +41,7 @@ Tile map::make_tile(char c) {
     return t;
 }
 
-bool map::load(const std::string& filepath) {
+bool GameMap::load(const std::string& filepath) {
     std::ifstream file(filepath);
     if (!file.is_open()) return false;
 
@@ -74,38 +75,25 @@ bool map::load(const std::string& filepath) {
     return true;
 }
 
-void map::draw_map() {
-    for (int row = 0; row < rows; row++) {
-        for (int col = 0; col < (int)tiles[row].size(); col++) {  // use actual row size
-            int    x = col * tile_size;
-            int    y = row * tile_size;
-            Tile&  t = tiles[row][col];
-            switch (t.type) {
-                case TILE_WALL:    DrawRectangle(x, y, tile_size, tile_size, GRAY);      break;
-                case TILE_BARREL:  DrawRectangle(x, y, tile_size, tile_size, BROWN);     break;
-                case TILE_RAILING: DrawRectangle(x, y, tile_size, tile_size, DARKBROWN); break;
-                default: break;
-            }
-            DrawRectangleLines(x, y, tile_size, tile_size, BLACK);
-        }
-    }
-}
+int  GameMap::get_tile_size()   const { return tile_size; }
+int  GameMap::get_x_dimension() const { return cols * tile_size; }
+int  GameMap::get_y_dimension() const { return rows * tile_size; }
+int  GameMap::getCols()         const { return cols; }
+int  GameMap::getRows()         const { return rows; }
 
-int  map::get_tile_size()   { return tile_size; }
-int  map::get_x_dimension() { return cols * tile_size; }
-int  map::get_y_dimension() { return rows * tile_size; }
-int  map::getCols()         { return cols; }
-int  map::getRows()         { return rows; }
-
-Tile map::get_tile(int col, int row) {
+Tile GameMap::get_tile(int col, int row) {
     if (row < 0 || row >= rows || col < 0 || col >= cols)
         return make_tile('.');
     return tiles[row][col];
 }
 
-bool map::is_walkable(int col, int row) {
+bool GameMap::is_walkable(int col, int row) {
     return get_tile(col, row).walkable;
 }
 
-std::vector<SpawnPoint> map::get_player_spawns() { return player_spawns; }
-std::vector<SpawnPoint> map::get_enemy_spawns()  { return enemy_spawns; }
+const std::vector<std::vector<Tile>>& GameMap::get_tiles() const {
+    return tiles;
+}
+
+std::vector<SpawnPoint> GameMap::get_player_spawns() { return player_spawns; }
+std::vector<SpawnPoint> GameMap::get_enemy_spawns()  { return enemy_spawns; }

@@ -118,18 +118,29 @@ endif
 GENERATED :=
 OBJECTS :=
 
-GENERATED += $(OBJDIR)/enemy.o
-GENERATED += $(OBJDIR)/hud.o
 GENERATED += $(OBJDIR)/main.o
+GENERATED += $(OBJDIR)/game.o
+GENERATED += $(OBJDIR)/input_handler.o
+GENERATED += $(OBJDIR)/turn_manager.o
+GENERATED += $(OBJDIR)/ai_controller.o
+GENERATED += $(OBJDIR)/renderer.o
+GENERATED += $(OBJDIR)/floating_text.o
 GENERATED += $(OBJDIR)/map.o
-GENERATED += $(OBJDIR)/unit.o
 GENERATED += $(OBJDIR)/combat.o
-OBJECTS += $(OBJDIR)/enemy.o
-OBJECTS += $(OBJDIR)/hud.o
+GENERATED += $(OBJDIR)/enemy.o
+GENERATED += $(OBJDIR)/unit.o
+
 OBJECTS += $(OBJDIR)/main.o
+OBJECTS += $(OBJDIR)/game.o
+OBJECTS += $(OBJDIR)/input_handler.o
+OBJECTS += $(OBJDIR)/turn_manager.o
+OBJECTS += $(OBJDIR)/ai_controller.o
+OBJECTS += $(OBJDIR)/renderer.o
+OBJECTS += $(OBJDIR)/floating_text.o
 OBJECTS += $(OBJDIR)/map.o
-OBJECTS += $(OBJDIR)/unit.o
 OBJECTS += $(OBJDIR)/combat.o
+OBJECTS += $(OBJDIR)/enemy.o
+OBJECTS += $(OBJDIR)/unit.o
 
 # Rules
 # #############################################
@@ -193,15 +204,39 @@ endif
 # File Rules
 # #############################################
 
-$(OBJDIR)/hud.o: src/hud.cpp
-	@echo "$(notdir $<)"
-	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
-
 $(OBJDIR)/main.o: src/main.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
+$(OBJDIR)/game.o: src/game.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/input_handler.o: src/input_handler.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/turn_manager.o: src/turn_manager.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/ai_controller.o: src/ai_controller.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/renderer.o: src/renderer.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/floating_text.o: src/floating_text.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
 $(OBJDIR)/map.o: src/map.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/combat.o: src/combat.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
@@ -213,10 +248,6 @@ $(OBJDIR)/unit.o: src/units/unit.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/combat.o: src/combat.cpp
-	@echo "$(notdir $<)"
-	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
-	
 -include $(OBJECTS:%.o=%.d)
 ifneq (,$(PCH))
   -include $(PCH_PLACEHOLDER).d

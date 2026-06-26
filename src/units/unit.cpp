@@ -1,68 +1,32 @@
 #include "unit.h"
-#include "raylib.h"
 #include <algorithm>
 
-unit::unit(int x_pos, int y_pos, int mvmt, int hp, int aim, int defense, int shoot_range, int shoot_dmg, int melee_dmg) {
+unit::unit(int x_pos, int y_pos, UnitStats s) {
     x_position        = x_pos;
     y_position        = y_pos;
-    movement          = mvmt;
+    movement          = s.movement;
     actions_remaining = MAX_ACTIONS;
-    this->hp          = hp;
-    max_hp            = hp;
-    this->aim         = aim;
-    this->defense     = defense;
-    this->shoot_range = shoot_range;
-    shoot_damage      = shoot_dmg;
-    melee_damage      = melee_dmg;
+    hp                = s.hp;
+    max_hp            = s.hp;
+    aim               = s.aim;
+    defense           = s.defense;
+    shoot_range       = s.shoot_range;
+    shoot_damage      = s.shoot_damage;
+    melee_damage      = s.melee_damage;
 }
 
-int unit::get_movement() { 
-    return movement; 
-}
-
-int unit::get_x_pos() { 
-    return x_position; 
-}
-
-int unit::get_y_pos() { 
-    return y_position; 
-}
-
-int unit::get_actions() { 
-    return actions_remaining; 
-}
-
-int unit::get_hp() { 
-    return hp; 
-}
-
-int unit::get_max_hp() { 
-    return max_hp; 
-}
-
-int unit::get_aim() { 
-    return aim; 
-}
-
-int unit::get_defense() { 
-    return defense; 
-}
-
-int unit::get_shoot_range() { 
-    return shoot_range; 
-}
-
-int unit::get_shoot_damage() { 
-    return shoot_damage; 
-}
-
-int unit::get_melee_damage() { 
-    return melee_damage; 
-}
-
-bool unit::is_alive() { 
-    return hp > 0; 
-}
+int  unit::get_x_pos()        const { return x_position; }
+int  unit::get_y_pos()        const { return y_position; }
+int  unit::get_movement()     const { return movement; }
+int  unit::get_actions()      const { return actions_remaining; }
+int  unit::get_hp()           const { return hp; }
+int  unit::get_max_hp()       const { return max_hp; }
+int  unit::get_aim()          const { return aim; }
+int  unit::get_defense()      const { return defense; }
+int  unit::get_shoot_range()  const { return shoot_range; }
+int  unit::get_shoot_damage() const { return shoot_damage; }
+int  unit::get_melee_damage() const { return melee_damage; }
+bool unit::is_alive()         const { return hp > 0; }
 
 void unit::use_action() { 
     if (actions_remaining > 0) actions_remaining--; 
@@ -79,20 +43,4 @@ void unit::take_damage(int amount) {
 void unit::set_position(int x, int y) {
     x_position = x;
     y_position = y;
-}
-
-void unit::draw(int tile_size) {
-    DrawRectangle(x_position * tile_size, y_position * tile_size, tile_size, tile_size, RED);
-}
-
-void unit::draw_range(int tile_size, int cols, int rows) {
-    if (actions_remaining <= 0) return;
-    for (int row = 0; row < rows; row++) {
-        for (int col = 0; col < cols; col++) {
-            int dist = std::max(abs(col - x_position), abs(row - y_position));
-            if (dist <= movement && dist > 0) {
-                DrawRectangleLines(col * tile_size, row * tile_size, tile_size, tile_size, Fade(YELLOW, 0.8f));
-            }
-        }
-    }
 }
