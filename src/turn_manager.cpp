@@ -55,7 +55,7 @@ void TurnManager::apply_player_intent(const Intent& intent, GameState& state) {
         return;
     }
 
-    // if selected unit is out of actions, auto-switch to next unit with actions
+    // auto-switch to next unit with actions if current is spent
     unit& active = state.players[state.selected_player];
     if (active.get_actions() <= 0) {
         for (int i = 1; i <= (int)state.players.size(); i++) {
@@ -69,7 +69,6 @@ void TurnManager::apply_player_intent(const Intent& intent, GameState& state) {
         }
     }
 
-    // check player death
     if (!state.players[state.selected_player].is_alive()) {
         state.mode    = ActionMode::NONE;
         state.preview = {};
@@ -123,32 +122,27 @@ void TurnManager::apply_move(const Intent& intent, GameState& state) {
     int tx = intent.target_x;
     int ty = intent.target_y;
 
-    // bounds check
     if (tx < 0 || ty < 0 || tx >= state.map.getCols() || ty >= state.map.getRows()) return;
 
-    int dist = std::max(abs(tx - active.get_x_pos()),
-                        abs(ty - active.get_y_pos()));
-
-    bool tile_blocked = false;
-    for (auto& e : state.enemies) {
-        if (e.is_alive() && e.get_x_pos() == tx && e.get_y_pos() == ty) {
-            tile_blocked = true;
-            break;
-        }
-    }
+    std::vector<std::pair<int,int>> blocked;
+    for (auto& e : state.enemies)
+        if (e.is_alive()) blocked.push_back({e.get_x_pos(), e.get_y_pos()});
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (i == state.selected_player) continue;
-        if (state.players[i].is_alive() &&
-            state.players[i].get_x_pos() == tx &&
-            state.players[i].get_y_pos() == ty) {
-            tile_blocked = true;
-            break;
-        }
+        if (state.players[i].is_alive())
+            blocked.push_back({state.players[i].get_x_pos(), state.players[i].get_y_pos()});
     }
 
-    if (dist <= active.get_movement()
-        && !tile_blocked
-        && state.map.is_walkable(tx, ty)) {
+    auto reachable = get_reachable_tiles(
+        active.get_x_pos(), active.get_y_pos(),
+        active.get_movement(), state.map, blocked);
+
+    bool can_reach = false;
+    for (auto& [col, row] : reachable) {
+        if (col == tx && row == ty) { can_reach = true; break; }
+    }
+
+    if (can_reach) {
         active.set_position(tx, ty);
         active.use_action();
     }

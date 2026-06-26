@@ -30,9 +30,9 @@ public:
     int  get_y_dimension() const;
     int  getCols()         const;
     int  getRows()         const;
-    Tile get_tile(int col, int row);
-    bool is_walkable(int col, int row);
-    bool is_objective(int col, int row);
+    Tile get_tile(int col, int row) const;
+    bool is_walkable(int col, int row) const;
+    bool is_objective(int col, int row) const;
     const std::vector<std::vector<Tile>>& get_tiles() const;
     std::vector<SpawnPoint> get_player_spawns();
     std::vector<SpawnPoint> get_enemy_spawns();

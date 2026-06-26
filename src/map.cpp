@@ -60,13 +60,10 @@ bool GameMap::load(const std::string& filepath) {
             Tile t = make_tile('.');
 
             if (c >= '1' && c <= '9') {
-                // player spawn — digit encodes unit type
                 player_spawns.push_back({col_idx, row_idx, c});
             } else if (c == 'E' || c == 'G' || c == 'C') {
-                // enemy spawn — letter encodes enemy type
                 enemy_spawns.push_back({col_idx, row_idx, c});
             } else if (c == 'Q') {
-                // objective tile — walkable floor that triggers win
                 t.is_objective = true;
             } else {
                 t = make_tile(c);
@@ -88,17 +85,17 @@ int  GameMap::get_y_dimension() const { return rows * tile_size; }
 int  GameMap::getCols()         const { return cols; }
 int  GameMap::getRows()         const { return rows; }
 
-Tile GameMap::get_tile(int col, int row) {
+Tile GameMap::get_tile(int col, int row) const {
     if (row < 0 || row >= rows || col < 0 || col >= cols)
         return make_tile('.');
     return tiles[row][col];
 }
 
-bool GameMap::is_walkable(int col, int row) {
+bool GameMap::is_walkable(int col, int row) const {
     return get_tile(col, row).walkable;
 }
 
-bool GameMap::is_objective(int col, int row) {
+bool GameMap::is_objective(int col, int row) const {
     if (row < 0 || row >= rows || col < 0 || col >= cols) return false;
     return tiles[row][col].is_objective;
 }
