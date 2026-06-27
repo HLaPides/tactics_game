@@ -129,6 +129,7 @@ GENERATED += $(OBJDIR)/map.o
 GENERATED += $(OBJDIR)/combat.o
 GENERATED += $(OBJDIR)/enemy.o
 GENERATED += $(OBJDIR)/unit.o
+GENERATED += $(OBJDIR)/ability.o
 
 OBJECTS += $(OBJDIR)/main.o
 OBJECTS += $(OBJDIR)/game.o
@@ -141,6 +142,7 @@ OBJECTS += $(OBJDIR)/map.o
 OBJECTS += $(OBJDIR)/combat.o
 OBJECTS += $(OBJDIR)/enemy.o
 OBJECTS += $(OBJDIR)/unit.o
+OBJECTS += $(OBJDIR)/ability.o
 
 # Rules
 # #############################################
@@ -245,6 +247,10 @@ $(OBJDIR)/enemy.o: src/units/enemy.cpp
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
 $(OBJDIR)/unit.o: src/units/unit.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/ability.o: src/ability.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 

@@ -1,5 +1,6 @@
 #include "combat.h"
 #include "raylib.h"
+#include "units/enemy.h"
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
@@ -132,7 +133,6 @@ AttackResult calculate_odds(unit& attacker, unit& target, const GameMap& game_ma
     int dist = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
                         abs(attacker.get_y_pos() - target.get_y_pos()));
 
-    // range penalty scales quadratically, divided by aim so high-aim units degrade slower
     int aim          = attacker.get_aim();
     int range_penalty = (dist * dist * 10) / std::max(aim, 1);
     result.range_penalty = range_penalty;
@@ -145,14 +145,17 @@ AttackResult calculate_odds(unit& attacker, unit& target, const GameMap& game_ma
     result.aim_component   = aim;
     result.defense_penalty = target.get_defense();
 
-    int aim_bonus = (aim - 60);
-    result.hit_chance = 85
-                      + aim_bonus
-                      + result.flank_bonus
-                      - result.range_penalty
-                      - result.defense_penalty
-                      - result.cover_penalty;
-    result.hit_chance = std::max(5, std::min(99, result.hit_chance));
+    // check if target has an aim penalty (dirty trick) — reduces their effective aim
+    // when they attack, not when they're attacked. For the attacker side we check
+    // if the attacker is an enemy with a penalty applied
+    int aim_bonus = (aim - attacker.get_aim_penalty() - 60);
+        result.hit_chance = 85
+                        + aim_bonus
+                        + result.flank_bonus
+                        - result.range_penalty
+                        - result.defense_penalty
+                        - result.cover_penalty;
+        result.hit_chance = std::max(5, std::min(99, result.hit_chance));
 
     result.crit_chance = cover.flanked ? 15 : 5;
 

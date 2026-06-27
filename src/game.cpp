@@ -1,5 +1,6 @@
 #include "game.h"
 #include "combat.h"
+#include "ability_defs.h"
 #include "units/enemy.h"
 #include "raylib.h"
 #include <algorithm>
@@ -57,6 +58,27 @@ bool game::load_level(const std::string& level_dir) {
         state.player_names.push_back(it->second.second);
     }
 
+    // assign starting abilities based on unit type
+    for (int i = 0; i < (int)state.players.size(); i++) {
+        unit&              p    = state.players[i];
+        const std::string& name = state.player_names[i];
+
+        // all units get shoot and melee
+        p.add_ability(AbilityDefs::make_shoot());
+        p.add_ability(AbilityDefs::make_melee());
+
+        if (name == "Bosun") {
+            p.add_ability(AbilityDefs::make_rush());
+        } else if (name == "Sharpshooter") {
+            p.add_ability(AbilityDefs::make_aimed_shot());
+            p.add_ability(AbilityDefs::make_overwatch());
+        } else if (name == "Medic") {
+            p.add_ability(AbilityDefs::make_heal());
+        } else if (name == "Swashbuckler") {
+            p.add_ability(AbilityDefs::make_dirty_trick());
+        }
+    }
+
     for (auto& sp : enemy_spawns) {
         auto it = enemy_types.find(sp.type);
         if (it == enemy_types.end()) continue;
@@ -68,8 +90,7 @@ bool game::load_level(const std::string& level_dir) {
     state.spotted.assign(state.enemies.size(), false);
     state.selected_player = 0;
 
-    // init camera
-    state.camera.zoom   = 1.0f;
+    state.camera.zoom     = 1.0f;
     state.camera.rotation = 0.0f;
     update_camera();
     update_visibility();
@@ -83,11 +104,8 @@ void game::update_camera() {
     int         tile_size = config.tile_size;
     int         map_w     = state.map.getCols() * tile_size;
 
-    // target camera x — center on active unit
     float target_x = active.get_x_pos() * tile_size + tile_size / 2.0f;
-
-    // clamp so camera doesn't show beyond map edges
-    float half_w = config.screen_w / 2.0f;
+    float half_w   = config.screen_w / 2.0f;
     target_x = std::max(half_w, std::min(target_x, (float)map_w - half_w));
 
     state.camera.target = { target_x, config.grid_h / 2.0f };
@@ -97,7 +115,6 @@ void game::update_camera() {
 void game::update_visibility() {
     if (state.players.empty()) return;
 
-    // check visibility from all living players
     for (auto& player : state.players) {
         if (!player.is_alive()) continue;
         int px = player.get_x_pos();
@@ -169,7 +186,10 @@ void game::update(float dt) {
         check_win_conditions();
     }
 
-    if (state.mode == ActionMode::SHOOT || state.mode == ActionMode::MELEE)
+    if (state.mode == ActionMode::SHOOT  ||
+        state.mode == ActionMode::MELEE  ||
+        state.mode == ActionMode::HEAL   ||
+        state.mode == ActionMode::DIRTY_TRICK)
         SetMouseCursor(MOUSE_CURSOR_CROSSHAIR);
     else
         SetMouseCursor(MOUSE_CURSOR_DEFAULT);

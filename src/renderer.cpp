@@ -65,9 +65,7 @@ void Renderer::draw_range_overlay(const GameState& state) {
 
     auto reachable = get_reachable_tiles(
         active.get_x_pos(), active.get_y_pos(),
-        active.get_movement(),
-        state.map,
-        blocked);
+        active.get_movement(), state.map, blocked);
 
     for (auto& [col, row] : reachable)
         DrawRectangleLines(col * tile_size, row * tile_size,
@@ -79,7 +77,7 @@ void Renderer::draw_target_highlights(const GameState& state) {
     const unit& active    = state.players[state.selected_player];
     int         tile_size = config.tile_size;
 
-    if (state.mode == ActionMode::SHOOT) {
+    if (state.mode == ActionMode::SHOOT || state.mode == ActionMode::AIMED_SHOT) {
         for (int i = 0; i < (int)state.enemies.size(); i++) {
             if (!state.enemies[i].is_alive()) continue;
             if (!state.spotted[i]) continue;
@@ -88,22 +86,66 @@ void Renderer::draw_target_highlights(const GameState& state) {
                                 abs(e.get_y_pos() - active.get_y_pos()));
             if (dist <= active.get_sight_range() &&
                 has_los(active.get_x_pos(), active.get_y_pos(),
-                        e.get_x_pos(), e.get_y_pos(),
-                        const_cast<GameMap&>(state.map)))
+                        e.get_x_pos(), e.get_y_pos(), state.map))
                 DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                            tile_size, tile_size, Fade(RED, 0.4f));
+                              tile_size, tile_size, Fade(RED, 0.4f));
         }
     }
 
     if (state.mode == ActionMode::MELEE) {
-        for (const auto& e : state.enemies) {
-            if (!e.is_alive()) continue;
+    for (const auto& e : state.enemies) {
+        if (!e.is_alive()) continue;
+        int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
+                            abs(e.get_y_pos() - active.get_y_pos()));
+        if (dist <= 1)
+            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                          tile_size, tile_size, Fade(ORANGE, 0.5f));
+    }
+}
+
+    if (state.mode == ActionMode::DIRTY_TRICK) {
+        for (int i = 0; i < (int)state.enemies.size(); i++) {
+            if (!state.enemies[i].is_alive()) continue;
+            if (!state.spotted[i]) continue;
+            const auto& e = state.enemies[i];
             int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
                                 abs(e.get_y_pos() - active.get_y_pos()));
-            if (dist <= 1)
+            if (dist <= active.get_sight_range() &&
+                has_los(active.get_x_pos(), active.get_y_pos(),
+                        e.get_x_pos(), e.get_y_pos(), state.map))
                 DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                              tile_size, tile_size, Fade(ORANGE, 0.5f));
+                            tile_size, tile_size, Fade(PURPLE, 0.4f));
         }
+    }
+
+    if (state.mode == ActionMode::HEAL) {
+        // highlight adjacent friendly units
+        for (const auto& p : state.players) {
+            if (!p.is_alive()) continue;
+            int dist = std::max(abs(p.get_x_pos() - active.get_x_pos()),
+                                abs(p.get_y_pos() - active.get_y_pos()));
+            if (dist <= 1 && dist > 0)
+                DrawRectangle(p.get_x_pos() * tile_size, p.get_y_pos() * tile_size,
+                              tile_size, tile_size, Fade(GREEN, 0.4f));
+        }
+    }
+
+    if (state.mode == ActionMode::RUSH) {
+        // show rush range — same as move range
+        std::vector<std::pair<int,int>> blocked;
+        for (auto& e : state.enemies)
+            if (e.is_alive()) blocked.push_back({e.get_x_pos(), e.get_y_pos()});
+        for (int i = 0; i < (int)state.players.size(); i++) {
+            if (i == state.selected_player) continue;
+            if (state.players[i].is_alive())
+                blocked.push_back({state.players[i].get_x_pos(), state.players[i].get_y_pos()});
+        }
+        auto reachable = get_reachable_tiles(
+            active.get_x_pos(), active.get_y_pos(),
+            active.get_movement(), state.map, blocked);
+        for (auto& [col, row] : reachable)
+            DrawRectangle(col * tile_size, row * tile_size,
+                          tile_size, tile_size, Fade(ORANGE, 0.25f));
     }
 }
 
@@ -137,6 +179,10 @@ void Renderer::draw_units(const GameState& state) {
 
         if (is_selected)
             DrawRectangleLines(x, y, tile_size, tile_size, WHITE);
+
+        // overwatch indicator
+        if (p.is_on_overwatch())
+            DrawText("OW", x + 8, y + 8, 12, SKYBLUE);
 
         for (int j = 0; j < p.get_max_hp(); j++) {
             Color pip = j < p.get_hp() ? GREEN : DARKGRAY;
@@ -214,20 +260,24 @@ void Renderer::draw_hud(const GameState& state) {
     const unit& active = state.players[state.selected_player];
     int         bar_y  = config.screen_h - BAR_HEIGHT;
 
+    // background bar
     DrawRectangle(0, bar_y, config.screen_w, BAR_HEIGHT,
                   ColorFromNormalized({0.13f, 0.13f, 0.13f, 1.0f}));
     DrawLine(0, bar_y, config.screen_w, bar_y, GRAY);
 
+    // unit name
     const char* name = state.selected_player < (int)state.player_names.size()
                      ? state.player_names[state.selected_player].c_str()
                      : "Unit";
     DrawText(name, 12, bar_y + 10, 16, WHITE);
 
+    // action pips
     for (int i = 0; i < 2; i++) {
         Color pip = i < active.get_actions() ? SKYBLUE : DARKGRAY;
         DrawCircle(12 + i * 16, bar_y + 36, 5, pip);
     }
 
+    // HP bar
     DrawText("HP", 12, bar_y + 50, 12, GRAY);
     DrawRectangle(30, bar_y + 52, 60, 8, DARKGRAY);
     float hp_frac  = (float)active.get_hp() / active.get_max_hp();
@@ -235,39 +285,66 @@ void Renderer::draw_hud(const GameState& state) {
     DrawRectangle(30, bar_y + 52, (int)(60 * hp_frac), 8, hp_color);
     DrawText(TextFormat("%d/%d", active.get_hp(), active.get_max_hp()),
              96, bar_y + 50, 12, GRAY);
+
     DrawLine(130, bar_y + 8, 130, bar_y + BAR_HEIGHT - 8, GRAY);
 
-    const char* btn_labels[] = { "Shoot", "Melee" };
-    ActionMode  btn_modes[]  = { ActionMode::SHOOT, ActionMode::MELEE };
-    for (int i = 0; i < 2; i++) {
+    // dynamic ability buttons — read from unit's ability list
+    const auto& abilities  = active.get_abilities();
+    int         no_actions = (active.get_actions() <= 0);
+
+    for (int i = 0; i < (int)abilities.size(); i++) {
+        const Ability& ab = abilities[i];
         int bx = BTN_START_X + i * (BTN_W + BTN_GAP);
         int by = bar_y + BTN_Y_OFFSET;
 
-        bool is_active  = (state.mode == btn_modes[i]);
-        bool no_actions = (active.get_actions() <= 0);
+        bool is_active    = (state.mode == ab.get_mode());
+        bool on_cooldown  = !ab.is_ready();
+        bool cant_afford  = (active.get_actions() < ab.get_cost() && ab.get_cost() > 0);
+        bool unavailable  = no_actions || on_cooldown || cant_afford;
 
-        Color border = is_active ? SKYBLUE : (no_actions ? DARKGRAY : GRAY);
-        Color label  = is_active ? SKYBLUE : (no_actions ? DARKGRAY : WHITE);
-        Color bg     = is_active ? ColorFromNormalized({0.1f, 0.3f, 0.5f, 1.0f})
-                                 : ColorFromNormalized({0.18f, 0.18f, 0.18f, 1.0f});
+        Color border = is_active  ? SKYBLUE
+                     : unavailable ? DARKGRAY : GRAY;
+        Color label  = is_active  ? SKYBLUE
+                     : unavailable ? DARKGRAY : WHITE;
+        Color bg     = is_active  ? ColorFromNormalized({0.1f, 0.3f, 0.5f, 1.0f})
+                                  : ColorFromNormalized({0.18f, 0.18f, 0.18f, 1.0f});
 
         DrawRectangle(bx, by, BTN_W, BTN_H, bg);
         DrawRectangleLines(bx, by, BTN_W, BTN_H, border);
-        DrawText(btn_labels[i], bx + BTN_W/2 - MeasureText(btn_labels[i], 14)/2,
-                 by + 10, 14, label);
-        DrawText("1 action", bx + BTN_W/2 - MeasureText("1 action", 10)/2,
-                 by + 44, 10, DARKGRAY);
+
+        // ability label
+        const char* lbl = ab.get_label().c_str();
+        DrawText(lbl, bx + BTN_W/2 - MeasureText(lbl, 13)/2, by + 8, 13, label);
+
+        // cost or cooldown info
+        if (on_cooldown) {
+            const char* cd = TextFormat("CD: %d", ab.get_cooldown());
+            DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 10)/2, by + 44, 10, RED);
+        } else if (ab.get_cost() == 0) {
+            DrawText("free", bx + BTN_W/2 - MeasureText("free", 10)/2,
+                     by + 44, 10, GREEN);
+        } else {
+            const char* cost = TextFormat("%d action%s", ab.get_cost(),
+                                          ab.get_cost() > 1 ? "s" : "");
+            DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 10)/2,
+                     by + 44, 10, DARKGRAY);
+        }
     }
 
+    // turn info + end turn button
     DrawLine(config.screen_w - 120, bar_y + 8,
              config.screen_w - 120, bar_y + BAR_HEIGHT - 8, GRAY);
 
-    const char* turn_label = state.phase == GamePhase::PLAYER_TURN ? "Player turn" : "Enemy turn";
+    const char* turn_label = state.phase == GamePhase::PLAYER_TURN
+                           ? "Player turn" : "Enemy turn";
     DrawText(turn_label, config.screen_w - 112, bar_y + 10, 13, GRAY);
 
     Color end_col = (state.phase == GamePhase::PLAYER_TURN) ? WHITE : DARKGRAY;
-    DrawRectangleLines(config.screen_w - 112, bar_y + 30, 100, 28, end_col);
-    DrawText("End turn", config.screen_w - 112 + 10, bar_y + 37, 13, end_col);
+    DrawRectangleLines(config.screen_w - END_TURN_W - 12, bar_y + END_TURN_Y_OFF,
+                       END_TURN_W, END_TURN_H, end_col);
+    DrawText("End turn",
+             config.screen_w - END_TURN_W - 12 + 10,
+             bar_y + END_TURN_Y_OFF + 7, 13, end_col);
 }
 
 void Renderer::draw_game_over(const GameState& state) {
