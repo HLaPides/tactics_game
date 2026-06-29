@@ -1,45 +1,63 @@
 #include "game.h"
-#include "combat/combat.h"
-#include "abilities/ability_defs.h"
-#include "units/enemy.h"
+#include "../combat/combat.h"
+#include "../units/unit_factory.h"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <functional>
 #include <unordered_map>
-#include <utility>
 
 game::game(const std::string& level_dir, const AppConfig& cfg)
     : config(cfg)
+    , campaign()
     , state()
     , input(cfg)
     , turns()
     , ai()
     , renderer(cfg)
+    , level_dir(level_dir)
 {
-    load_level(level_dir);
+    init_campaign();
+    start_mission();
 }
 
-bool game::load_level(const std::string& level_dir) {
+void game::init_campaign() {
+    // build the starting roster from factory functions
+    // order matches spawn chars 1-4
+    struct RosterEntry {
+        std::function<unit(int,int)> factory;
+        std::string                  name;
+    };
+
+    std::vector<RosterEntry> entries = {
+        { UnitFactory::make_bosun,        "Bosun"        },
+        { UnitFactory::make_sharpshooter, "Sharpshooter" },
+        { UnitFactory::make_medic,        "Medic"        },
+        { UnitFactory::make_swashbuckler, "Swashbuckler" },
+    };
+
+    for (auto& e : entries) {
+        // spawn at 0,0 — position set by level on mission start
+        campaign.roster.push_back(e.factory(0, 0));
+        campaign.names.push_back(e.name);
+        campaign.permanently_dead.push_back(false);
+    }
+}
+
+void game::start_mission() {
+    reset_mission_state();
+
     std::vector<std::string> levels = {
         level_dir + "/ship_01.txt"
     };
 
-    int chosen = GetRandomValue(0, (int)levels.size() - 1);
-    if (!state.map.load(levels[chosen])) return false;
+    std::string path = levels[campaign.mission_index % (int)levels.size()];
+    if (!load_level(path)) return;
+}
 
-    std::unordered_map<char, std::pair<UnitStats, std::string>> player_types = {
-        { '1', { UnitPresets::Bosun(),        "Bosun"        } },
-        { '2', { UnitPresets::Sharpshooter(), "Sharpshooter" } },
-        { '3', { UnitPresets::Medic(),        "Medic"        } },
-        { '4', { UnitPresets::Swashbuckler(), "Swashbuckler" } },
-    };
-
-    std::unordered_map<char, std::pair<UnitStats, EnemyType>> enemy_types = {
-        { 'E', { UnitPresets::Soldier(), EnemyType::SOLDIER  } },
-        { 'G', { UnitPresets::Guard(),   EnemyType::GUARD    } },
-        { 'C', { UnitPresets::Captain(), EnemyType::CAPTAIN  } },
-    };
+bool game::load_level(const std::string& path) {
+    if (!state.map.load(path)) return false;
 
     auto player_spawns = state.map.get_player_spawns();
     auto enemy_spawns  = state.map.get_enemy_spawns();
@@ -51,60 +69,91 @@ bool game::load_level(const std::string& level_dir) {
                   return a.type < b.type;
               });
 
+    // enemy factory lookup
+    using EnemyFactory = std::function<enemy(int,int)>;
+    std::unordered_map<char, EnemyFactory> enemy_types = {
+        { 'E', UnitFactory::make_soldier },
+        { 'G', UnitFactory::make_guard   },
+        { 'C', UnitFactory::make_captain },
+    };
+
+    // spawn players from roster — char '1' = roster[0], '2' = roster[1] etc.
     for (auto& sp : player_spawns) {
-        auto it = player_types.find(sp.type);
-        if (it == player_types.end()) continue;
-        state.players.push_back(unit(sp.col, sp.row, it->second.first));
-        state.player_names.push_back(it->second.second);
+        int roster_idx = sp.type - '1';  // '1'->0, '2'->1, '3'->2, '4'->3
+        if (roster_idx < 0 || roster_idx >= (int)campaign.roster.size()) continue;
+        if (campaign.permanently_dead[roster_idx]) continue;  // skip dead
+
+        // copy roster unit into mission, reset HP and position
+        unit u = campaign.roster[roster_idx];
+        u.set_position(sp.col, sp.row);
+        u.reset_hp();  // full HP each mission
+
+        state.players.push_back(u);
+        state.player_names.push_back(campaign.names[roster_idx]);
+        state.from_roster.push_back(true);
     }
 
-    // assign starting abilities based on unit type
-    for (int i = 0; i < (int)state.players.size(); i++) {
-        unit&              p    = state.players[i];
-        const std::string& name = state.player_names[i];
-
-        // all units get shoot and melee
-        p.add_ability(AbilityDefs::make_shoot());
-        p.add_ability(AbilityDefs::make_melee());
-
-        if (name == "Bosun") {
-            p.add_ability(AbilityDefs::make_rush());
-        } else if (name == "Sharpshooter") {
-            p.add_ability(AbilityDefs::make_aimed_shot());
-            p.add_ability(AbilityDefs::make_overwatch());
-        } else if (name == "Medic") {
-            p.add_ability(AbilityDefs::make_heal());
-        } else if (name == "Swashbuckler") {
-            p.add_ability(AbilityDefs::make_dirty_trick());
-        }
-    }
-
+    // spawn enemies
     for (auto& sp : enemy_spawns) {
         auto it = enemy_types.find(sp.type);
         if (it == enemy_types.end()) continue;
-        state.enemies.push_back(enemy(sp.col, sp.row, it->second.first, it->second.second));
+        state.enemies.push_back(it->second(sp.col, sp.row));
     }
 
     if (state.players.empty()) return false;
 
     state.spotted.assign(state.enemies.size(), false);
     state.selected_player = 0;
-
     state.camera.zoom     = 1.0f;
     state.camera.rotation = 0.0f;
+
     update_camera();
     update_visibility();
     return true;
 }
 
+void game::end_mission() {
+    write_back_to_roster();
+    campaign.mission_index++;
+}
+
+void game::write_back_to_roster() {
+    // track which roster slot each player came from
+    int roster_slot = 0;
+    for (int i = 0; i < (int)state.players.size(); i++) {
+        if (!state.from_roster[i]) continue;  // skip temp squadmates
+
+        // find the corresponding roster slot — skip permanently dead
+        while (roster_slot < (int)campaign.permanently_dead.size() &&
+               campaign.permanently_dead[roster_slot])
+            roster_slot++;
+
+        if (roster_slot >= (int)campaign.roster.size()) break;
+
+        if (!state.players[i].is_alive()) {
+            // died this mission — mark permanent death
+            campaign.permanently_dead[roster_slot] = true;
+        } else {
+            // copy back abilities (carries unlocks, cooldown state doesn't matter)
+            // HP is NOT written back — resets to max on next mission start
+            campaign.roster[roster_slot] = state.players[i];
+        }
+
+        roster_slot++;
+    }
+}
+
+void game::reset_mission_state() {
+    state = GameState{};
+}
+
 void game::update_camera() {
     if (state.players.empty()) return;
 
-    const unit& active    = state.players[state.selected_player];
-    int         tile_size = config.tile_size;
-    int         map_w     = state.map.getCols() * tile_size;
+    const unit& active = state.players[state.selected_player];
+    int         map_w  = state.map.getCols() * config.tile_size;
 
-    float target_x = active.get_x_pos() * tile_size + tile_size / 2.0f;
+    float target_x = active.get_x_pos() * config.tile_size + config.tile_size / 2.0f;
     float half_w   = config.screen_w / 2.0f;
     target_x = std::max(half_w, std::min(target_x, (float)map_w - half_w));
 
@@ -151,6 +200,7 @@ void game::check_win_conditions() {
         if (!p.is_alive()) continue;
         if (state.map.is_objective(p.get_x_pos(), p.get_y_pos())) {
             state.win_state = WinState::VICTORY;
+            end_mission();
             return;
         }
     }

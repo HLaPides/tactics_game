@@ -23,6 +23,7 @@ public:
     int  get_sight_range()  const;
     bool is_alive()         const;
     bool is_on_overwatch()  const;
+    
 
     void use_action();
     void use_actions(int count);
@@ -32,6 +33,7 @@ public:
     void set_position(int x, int y);
     void set_overwatch(bool val);
     void clear_overwatch();
+    void reset_hp();
 
     // aim penalty (dirty trick / debuffs)
     void apply_aim_penalty(int amount, int turns);

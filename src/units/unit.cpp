@@ -115,3 +115,7 @@ void unit::tick_cooldowns() {
     for (auto& a : abilities)
         a.tick();
 }
+
+void unit::reset_hp() {
+    hp = max_hp;
+}
