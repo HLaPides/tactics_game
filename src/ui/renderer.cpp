@@ -293,10 +293,9 @@ void Renderer::draw_hud(const GameState& state) {
                      : "Unit";
     DrawText(name, 12, bar_y + 10, 16, WHITE);
 
-    if (active.is_on_overwatch()) {
+    if (active.is_on_overwatch())
         DrawText("[OVERWATCH]", 12 + MeasureText(name, 16) + 8,
                  bar_y + 12, 12, SKYBLUE);
-    }
 
     // action pips
     for (int i = 0; i < 2; i++) {
@@ -356,30 +355,31 @@ void Renderer::draw_hud(const GameState& state) {
         }
     }
 
-    // right side — turn counter, phase, end turn
+    // right side — divider
     DrawLine(config.screen_w - 120, bar_y + 8,
              config.screen_w - 120, bar_y + BAR_HEIGHT - 8, GRAY);
 
+    // turn counter — top line
+    const char* turn_num = TextFormat("Turn %d", state.turn_count + 1);
+    DrawText(turn_num, config.screen_w - 112, bar_y + 8, 11, DARKGRAY);
+
+    // phase label — second line
     const char* turn_label = state.phase == GamePhase::PLAYER_TURN
                            ? "Player turn" : "Enemy turn";
-    DrawText(turn_label, config.screen_w - 112, bar_y + 10, 13, GRAY);
+    DrawText(turn_label, config.screen_w - 112, bar_y + 22, 11, GRAY);
 
-    // turn counter
-    const char* turn_num = TextFormat("Turn %d", state.turn_count + 1);
-    DrawText(turn_num, config.screen_w - 112, bar_y + 26, 11, DARKGRAY);
-
+    // end turn button — bottom of panel
     Color end_col = (state.phase == GamePhase::PLAYER_TURN) ? WHITE : DARKGRAY;
-    DrawRectangleLines(config.screen_w - END_TURN_W - 12, bar_y + END_TURN_Y_OFF,
-                       END_TURN_W, END_TURN_H, end_col);
+    DrawRectangleLines(config.screen_w - 112, bar_y + 38,
+                       100, 28, end_col);
     DrawText("End turn",
-             config.screen_w - END_TURN_W - 12 + 10,
-             bar_y + END_TURN_Y_OFF + 7, 13, end_col);
+             config.screen_w - 112 + 10,
+             bar_y + 45, 13, end_col);
 }
 
 void Renderer::draw_game_over(const GameState& state) {
     if (state.win_state == WinState::ONGOING) return;
 
-    // dark overlay
     DrawRectangle(0, 0, config.screen_w, config.screen_h,
                   ColorFromNormalized({0.0f, 0.0f, 0.0f, 0.75f}));
 
@@ -389,7 +389,7 @@ void Renderer::draw_game_over(const GameState& state) {
     if (state.win_state == WinState::VICTORY) {
         const char* title = "MUTINY SUCCESSFUL";
         DrawText(title, cx - MeasureText(title, 40) / 2, cy - 120, 40, GOLD);
-        const char* sub = "The gold is yours. Vane never saw it coming.";
+        const char* sub = "The gold and ship are yours. Vane never saw it coming.";
         DrawText(sub, cx - MeasureText(sub, 16) / 2, cy - 68, 16, LIGHTGRAY);
     } else {
         const char* title = "MUTINY FAILED";
@@ -398,19 +398,17 @@ void Renderer::draw_game_over(const GameState& state) {
         DrawText(sub, cx - MeasureText(sub, 16) / 2, cy - 68, 16, LIGHTGRAY);
     }
 
-    // turn count
     const char* turns = TextFormat("Survived %d turn%s",
                                     state.turn_count,
                                     state.turn_count == 1 ? "" : "s");
     DrawText(turns, cx - MeasureText(turns, 14) / 2, cy - 40, 14, GRAY);
 
-    // casualties
-    int y_offset = cy - 10;
+    int  y_offset = cy - 10;
     bool any_dead = false;
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (state.players[i].is_alive()) continue;
         if (!any_dead) {
-            DrawText("Lost in action:", cx - 80, y_offset, 13, GRAY);
+            DrawText("Killed in action:", cx - 80, y_offset, 13, GRAY);
             y_offset += 20;
             any_dead = true;
         }
@@ -421,13 +419,15 @@ void Renderer::draw_game_over(const GameState& state) {
     }
 
     if (!any_dead && state.win_state == WinState::VICTORY) {
-        DrawText("Full crew survived.", cx - MeasureText("Full crew survived.", 13) / 2,
+        DrawText("Full crew survived.",
+                 cx - MeasureText("Full crew survived.", 13) / 2,
                  y_offset, 13, GREEN);
         y_offset += 20;
     }
 
-    // restart prompt
-    const char* restart = "Press R to try again";
-    DrawText(restart, cx - MeasureText(restart, 16) / 2,
-             cy + 80, 16, WHITE);
+    if (state.win_state == WinState::DEFEAT) {
+        const char* restart = "Press R to try again";
+        DrawText(restart, cx - MeasureText(restart, 16) / 2,
+                 cy + 80, 16, WHITE);
+    }
 }
