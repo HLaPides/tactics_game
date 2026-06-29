@@ -377,13 +377,14 @@ void TurnManager::apply_heal(const Intent& intent, GameState& state) {
 
         int dist = std::max(abs(intent.target_x - active.get_x_pos()),
                             abs(intent.target_y - active.get_y_pos()));
-        if (dist > 1) break;
+        if (dist > 1) break;  // dist 0 = self, dist 1 = adjacent
 
         p.heal(2);
         active.use_action();
         heal->use();
-        state.mode    = ActionMode::NONE;
-        state.preview = {};
+        state.mode         = ActionMode::NONE;
+        state.preview      = {};
+        state.target_index = -1;
         state.floating_texts.spawn(p.get_x_pos(), p.get_y_pos(), "+2 HP", GREEN);
         break;
     }

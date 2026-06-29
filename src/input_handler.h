@@ -4,6 +4,7 @@
 #include "game_state.h"
 #include "raylib.h"
 #include <optional>
+#include <vector>
 
 class InputHandler {
 public:
@@ -19,6 +20,7 @@ private:
     bool clicked_end_turn(Vector2 mouse) const;
     int  clicked_ability(Vector2 mouse, const unit& active) const;
     std::optional<IntentType> mode_to_intent(ActionMode mode) const;
+    std::vector<int> get_valid_targets(const GameState& state) const;
 
     static const int BTN_W             = 80;
     static const int BTN_H             = 60;
