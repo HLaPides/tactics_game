@@ -1,7 +1,7 @@
 #pragma once
-#include "core/types.h"
-#include "abilities/ability.h"
-#include "core/game_state.h"
+#include "../core/types.h"
+#include "../abilities/ability.h"
+#include "../core/game_state.h"
 #include "raylib.h"
 #include <optional>
 #include <vector>
@@ -9,8 +9,8 @@
 class InputHandler {
 public:
     InputHandler(const AppConfig& config);
-    std::optional<Intent> poll(GameState& state);
-    void update_preview(GameState& state);
+    std::optional<Intent> poll(GameState& state, const Camera2D& cam);
+    void update_preview(GameState& state, const Camera2D& cam);
 private:
     const AppConfig& config;
 

@@ -14,8 +14,8 @@ public:
     void run();
 private:
     AppConfig      config;
-    CampaignState  campaign;   // persists between missions
-    GameState      state;      // rebuilt each mission
+    CampaignState  campaign;
+    GameState      state;
     InputHandler   input;
     TurnManager    turns;
     AIController   ai;
@@ -29,7 +29,6 @@ private:
     void write_back_to_roster();
     void reset_mission_state();
 
-    void update_camera();
     void update_visibility();
     void check_win_conditions();
     void update(float dt);

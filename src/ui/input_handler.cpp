@@ -1,5 +1,5 @@
 #include "input_handler.h"
-#include "combat/combat.h"
+#include "../combat/combat.h"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
@@ -54,7 +54,6 @@ std::vector<int> InputHandler::get_valid_targets(const GameState& state) const {
     const unit& active = state.players[state.selected_player];
     std::vector<int> targets;
 
-    // heal mode — targets are friendly players within range 1 (including self)
     if (state.mode == ActionMode::HEAL) {
         for (int i = 0; i < (int)state.players.size(); i++) {
             const auto& p = state.players[i];
@@ -70,7 +69,6 @@ std::vector<int> InputHandler::get_valid_targets(const GameState& state) const {
         return targets;
     }
 
-    // attack modes — targets are spotted enemies
     for (int i = 0; i < (int)state.enemies.size(); i++) {
         const auto& e = state.enemies[i];
         if (!e.is_alive()) continue;
@@ -100,10 +98,9 @@ std::vector<int> InputHandler::get_valid_targets(const GameState& state) const {
     return targets;
 }
 
-std::optional<Intent> InputHandler::poll(GameState& state) {
+std::optional<Intent> InputHandler::poll(GameState& state, const Camera2D& cam) {
     if (state.players.empty()) return std::nullopt;
-    const unit& active = state.players[state.selected_player];
-    Vector2     mouse  = GetMousePosition();
+    Vector2 mouse = GetMousePosition();
 
     // Tab — cycle targets in attack/heal mode, cycle units otherwise
     if (IsKeyPressed(KEY_TAB) && state.phase == GamePhase::PLAYER_TURN) {
@@ -179,8 +176,8 @@ std::optional<Intent> InputHandler::poll(GameState& state) {
         return std::nullopt;
     }
 
-    int mx = mouse_tile_x(mouse, state.camera);
-    int my = mouse_tile_y(mouse, state.camera);
+    int mx = mouse_tile_x(mouse, cam);
+    int my = mouse_tile_y(mouse, cam);
 
     if (state.phase != GamePhase::PLAYER_TURN) return std::nullopt;
 
@@ -232,7 +229,7 @@ std::optional<Intent> InputHandler::poll(GameState& state) {
     return Intent{ IntentType::Move, mx, my };
 }
 
-void InputHandler::update_preview(GameState& state) {
+void InputHandler::update_preview(GameState& state, const Camera2D& cam) {
     if (state.players.empty()) return;
     unit&   active = state.players[state.selected_player];
     Vector2 mouse  = GetMousePosition();
@@ -262,13 +259,8 @@ void InputHandler::update_preview(GameState& state) {
         return;
     }
 
-    // heal preview from target_index
-    if (state.mode == ActionMode::HEAL) {
-        if (state.target_index >= 0 && state.target_index < (int)state.players.size()) {
-            // no attack preview panel for heal — highlight handled by draw_target_highlights
-        }
-        return;
-    }
+    // heal preview
+    if (state.mode == ActionMode::HEAL) return;
 
     // attack preview from target_index
     bool attack_mode = (state.mode == ActionMode::SHOOT     ||
@@ -296,8 +288,8 @@ void InputHandler::update_preview(GameState& state) {
     // fallback hover preview
     if (!mouse_on_grid(mouse) || !attack_mode) return;
 
-    int mx = mouse_tile_x(mouse, state.camera);
-    int my = mouse_tile_y(mouse, state.camera);
+    int mx = mouse_tile_x(mouse, cam);
+    int my = mouse_tile_y(mouse, cam);
 
     for (int i = 0; i < (int)state.enemies.size(); i++) {
         auto& e = state.enemies[i];

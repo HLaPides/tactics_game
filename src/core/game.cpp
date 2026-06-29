@@ -23,8 +23,6 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
 }
 
 void game::init_campaign() {
-    // build the starting roster from factory functions
-    // order matches spawn chars 1-4
     struct RosterEntry {
         std::function<unit(int,int)> factory;
         std::string                  name;
@@ -38,7 +36,6 @@ void game::init_campaign() {
     };
 
     for (auto& e : entries) {
-        // spawn at 0,0 — position set by level on mission start
         campaign.roster.push_back(e.factory(0, 0));
         campaign.names.push_back(e.name);
         campaign.permanently_dead.push_back(false);
@@ -69,7 +66,6 @@ bool game::load_level(const std::string& path) {
                   return a.type < b.type;
               });
 
-    // enemy factory lookup
     using EnemyFactory = std::function<enemy(int,int)>;
     std::unordered_map<char, EnemyFactory> enemy_types = {
         { 'E', UnitFactory::make_soldier },
@@ -77,23 +73,20 @@ bool game::load_level(const std::string& path) {
         { 'C', UnitFactory::make_captain },
     };
 
-    // spawn players from roster — char '1' = roster[0], '2' = roster[1] etc.
     for (auto& sp : player_spawns) {
-        int roster_idx = sp.type - '1';  // '1'->0, '2'->1, '3'->2, '4'->3
+        int roster_idx = sp.type - '1';
         if (roster_idx < 0 || roster_idx >= (int)campaign.roster.size()) continue;
-        if (campaign.permanently_dead[roster_idx]) continue;  // skip dead
+        if (campaign.permanently_dead[roster_idx]) continue;
 
-        // copy roster unit into mission, reset HP and position
         unit u = campaign.roster[roster_idx];
         u.set_position(sp.col, sp.row);
-        u.reset_hp();  // full HP each mission
+        u.reset_hp();
 
         state.players.push_back(u);
         state.player_names.push_back(campaign.names[roster_idx]);
         state.from_roster.push_back(true);
     }
 
-    // spawn enemies
     for (auto& sp : enemy_spawns) {
         auto it = enemy_types.find(sp.type);
         if (it == enemy_types.end()) continue;
@@ -104,10 +97,16 @@ bool game::load_level(const std::string& path) {
 
     state.spotted.assign(state.enemies.size(), false);
     state.selected_player = 0;
-    state.camera.zoom     = 1.0f;
-    state.camera.rotation = 0.0f;
 
-    update_camera();
+    // init camera via renderer
+    if (!state.players.empty()) {
+        const unit& active = state.players[0];
+        renderer.update_camera(
+            active.get_x_pos(),
+            active.get_y_pos(),
+            state.map.getCols() * config.tile_size);
+    }
+
     update_visibility();
     return true;
 }
@@ -118,12 +117,10 @@ void game::end_mission() {
 }
 
 void game::write_back_to_roster() {
-    // track which roster slot each player came from
     int roster_slot = 0;
     for (int i = 0; i < (int)state.players.size(); i++) {
-        if (!state.from_roster[i]) continue;  // skip temp squadmates
+        if (!state.from_roster[i]) continue;
 
-        // find the corresponding roster slot — skip permanently dead
         while (roster_slot < (int)campaign.permanently_dead.size() &&
                campaign.permanently_dead[roster_slot])
             roster_slot++;
@@ -131,11 +128,8 @@ void game::write_back_to_roster() {
         if (roster_slot >= (int)campaign.roster.size()) break;
 
         if (!state.players[i].is_alive()) {
-            // died this mission — mark permanent death
             campaign.permanently_dead[roster_slot] = true;
         } else {
-            // copy back abilities (carries unlocks, cooldown state doesn't matter)
-            // HP is NOT written back — resets to max on next mission start
             campaign.roster[roster_slot] = state.players[i];
         }
 
@@ -145,20 +139,6 @@ void game::write_back_to_roster() {
 
 void game::reset_mission_state() {
     state = GameState{};
-}
-
-void game::update_camera() {
-    if (state.players.empty()) return;
-
-    const unit& active = state.players[state.selected_player];
-    int         map_w  = state.map.getCols() * config.tile_size;
-
-    float target_x = active.get_x_pos() * config.tile_size + config.tile_size / 2.0f;
-    float half_w   = config.screen_w / 2.0f;
-    target_x = std::max(half_w, std::min(target_x, (float)map_w - half_w));
-
-    state.camera.target = { target_x, config.grid_h / 2.0f };
-    state.camera.offset = { config.screen_w / 2.0f, config.grid_h / 2.0f };
 }
 
 void game::update_visibility() {
@@ -207,31 +187,56 @@ void game::check_win_conditions() {
 }
 
 void game::update(float dt) {
-    if (state.win_state != WinState::ONGOING) return;
+    if (state.win_state != WinState::ONGOING) {
+        if (state.win_state == WinState::DEFEAT && IsKeyPressed(KEY_R)) {
+            campaign = CampaignState{};
+            init_campaign();
+            start_mission();
+        }
+        return;
+    }
 
     state.floating_texts.update(dt);
-    input.update_preview(state);
+
+    const Camera2D& cam = renderer.get_camera();
+    input.update_preview(state, cam);
 
     if (state.phase == GamePhase::PLAYER_TURN) {
-        auto intent = input.poll(state);
+        auto intent = input.poll(state, cam);
         if (intent.has_value()) {
             if (intent->type == IntentType::SelectUnit) {
                 state.selected_player = intent->value;
-                state.mode    = ActionMode::NONE;
-                state.preview = {};
-                update_camera();
+                state.mode            = ActionMode::NONE;
+                state.preview         = {};
             } else {
                 turns.apply_player_intent(intent.value(), state);
             }
         }
-        update_camera();
+
+        // update camera to follow selected player
+        if (!state.players.empty()) {
+            const unit& active = state.players[state.selected_player];
+            renderer.update_camera(
+                active.get_x_pos(),
+                active.get_y_pos(),
+                state.map.getCols() * config.tile_size);
+        }
+
         update_visibility();
         check_win_conditions();
     }
 
     if (state.phase == GamePhase::ENEMY_TURN) {
         turns.update_enemy_turn(dt, state, ai);
-        update_camera();
+
+        if (!state.players.empty()) {
+            const unit& active = state.players[state.selected_player];
+            renderer.update_camera(
+                active.get_x_pos(),
+                active.get_y_pos(),
+                state.map.getCols() * config.tile_size);
+        }
+
         update_visibility();
         check_win_conditions();
     }

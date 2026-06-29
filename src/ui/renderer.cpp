@@ -2,13 +2,29 @@
 #include "raylib.h"
 #include <algorithm>
 
-Renderer::Renderer(const AppConfig& cfg) : config(cfg) {}
+Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
+    camera.zoom     = 1.0f;
+    camera.rotation = 0.0f;
+}
+
+void Renderer::update_camera(int player_x, int player_y, int map_w) {
+    float target_x = player_x * config.tile_size + config.tile_size / 2.0f;
+    float half_w   = config.screen_w / 2.0f;
+    target_x = std::max(half_w, std::min(target_x, (float)map_w - half_w));
+
+    camera.target = { target_x, config.grid_h / 2.0f };
+    camera.offset = { config.screen_w / 2.0f, config.grid_h / 2.0f };
+}
+
+const Camera2D& Renderer::get_camera() const {
+    return camera;
+}
 
 void Renderer::draw_frame(const GameState& state) {
     BeginDrawing();
     ClearBackground(DARKGRAY);
 
-    BeginMode2D(state.camera);
+    BeginMode2D(camera);
     draw_map(state);
     draw_range_overlay(state);
     draw_target_highlights(state);
@@ -16,7 +32,6 @@ void Renderer::draw_frame(const GameState& state) {
     draw_floating_texts(state);
     EndMode2D();
 
-    // attack preview in screen space — outside BeginMode2D
     draw_attack_preview(state);
     draw_hud(state);
     draw_game_over(state);
@@ -161,7 +176,6 @@ void Renderer::draw_units(const GameState& state) {
         int y = e.get_y_pos() * tile_size;
         DrawRectangle(x, y, tile_size, tile_size, BLUE);
 
-        // target selection ring — yellow for attack targets
         if (i == state.target_index && state.mode != ActionMode::HEAL)
             DrawRectangleLines(x - 2, y - 2, tile_size + 4, tile_size + 4, YELLOW);
 
@@ -184,7 +198,6 @@ void Renderer::draw_units(const GameState& state) {
         if (is_selected)
             DrawRectangleLines(x, y, tile_size, tile_size, WHITE);
 
-        // heal target ring — green
         if (state.mode == ActionMode::HEAL && i == state.target_index)
             DrawRectangleLines(x - 2, y - 2, tile_size + 4, tile_size + 4, GREEN);
 
@@ -217,12 +230,11 @@ void Renderer::draw_attack_preview(const GameState& state) {
     const AttackResult& result = state.preview.result;
     const unit*         target = state.preview.target;
 
-    // convert world position to screen space
     Vector2 world_pos  = {
         (float)(target->get_x_pos() * config.tile_size + config.tile_size / 2),
         (float)(target->get_y_pos() * config.tile_size)
     };
-    Vector2 screen_pos = GetWorldToScreen2D(world_pos, state.camera);
+    Vector2 screen_pos = GetWorldToScreen2D(world_pos, camera);
 
     int panel_w = 200;
     int panel_h = 110;
@@ -275,16 +287,24 @@ void Renderer::draw_hud(const GameState& state) {
                   ColorFromNormalized({0.13f, 0.13f, 0.13f, 1.0f}));
     DrawLine(0, bar_y, config.screen_w, bar_y, GRAY);
 
+    // unit name + overwatch indicator
     const char* name = state.selected_player < (int)state.player_names.size()
                      ? state.player_names[state.selected_player].c_str()
                      : "Unit";
     DrawText(name, 12, bar_y + 10, 16, WHITE);
 
+    if (active.is_on_overwatch()) {
+        DrawText("[OVERWATCH]", 12 + MeasureText(name, 16) + 8,
+                 bar_y + 12, 12, SKYBLUE);
+    }
+
+    // action pips
     for (int i = 0; i < 2; i++) {
         Color pip = i < active.get_actions() ? SKYBLUE : DARKGRAY;
         DrawCircle(12 + i * 16, bar_y + 36, 5, pip);
     }
 
+    // HP bar
     DrawText("HP", 12, bar_y + 50, 12, GRAY);
     DrawRectangle(30, bar_y + 52, 60, 8, DARKGRAY);
     float hp_frac  = (float)active.get_hp() / active.get_max_hp();
@@ -295,7 +315,8 @@ void Renderer::draw_hud(const GameState& state) {
 
     DrawLine(130, bar_y + 8, 130, bar_y + BAR_HEIGHT - 8, GRAY);
 
-    const auto& abilities = active.get_abilities();
+    // ability buttons
+    const auto& abilities  = active.get_abilities();
     bool        no_actions = (active.get_actions() <= 0);
 
     for (int i = 0; i < (int)abilities.size(); i++) {
@@ -335,12 +356,17 @@ void Renderer::draw_hud(const GameState& state) {
         }
     }
 
+    // right side — turn counter, phase, end turn
     DrawLine(config.screen_w - 120, bar_y + 8,
              config.screen_w - 120, bar_y + BAR_HEIGHT - 8, GRAY);
 
     const char* turn_label = state.phase == GamePhase::PLAYER_TURN
                            ? "Player turn" : "Enemy turn";
     DrawText(turn_label, config.screen_w - 112, bar_y + 10, 13, GRAY);
+
+    // turn counter
+    const char* turn_num = TextFormat("Turn %d", state.turn_count + 1);
+    DrawText(turn_num, config.screen_w - 112, bar_y + 26, 11, DARKGRAY);
 
     Color end_col = (state.phase == GamePhase::PLAYER_TURN) ? WHITE : DARKGRAY;
     DrawRectangleLines(config.screen_w - END_TURN_W - 12, bar_y + END_TURN_Y_OFF,
@@ -353,13 +379,55 @@ void Renderer::draw_hud(const GameState& state) {
 void Renderer::draw_game_over(const GameState& state) {
     if (state.win_state == WinState::ONGOING) return;
 
+    // dark overlay
+    DrawRectangle(0, 0, config.screen_w, config.screen_h,
+                  ColorFromNormalized({0.0f, 0.0f, 0.0f, 0.75f}));
+
+    int cx = config.screen_w / 2;
+    int cy = config.screen_h / 2;
+
     if (state.win_state == WinState::VICTORY) {
-        DrawText("VICTORY!",
-                 config.screen_w / 2 - MeasureText("VICTORY!", 40) / 2,
-                 config.screen_h / 2 - 60, 40, GOLD);
+        const char* title = "MUTINY SUCCESSFUL";
+        DrawText(title, cx - MeasureText(title, 40) / 2, cy - 120, 40, GOLD);
+        const char* sub = "The gold is yours. Vane never saw it coming.";
+        DrawText(sub, cx - MeasureText(sub, 16) / 2, cy - 68, 16, LIGHTGRAY);
     } else {
-        DrawText("GAME OVER",
-                 config.screen_w / 2 - MeasureText("GAME OVER", 40) / 2,
-                 config.screen_h / 2 - 60, 40, RED);
+        const char* title = "MUTINY FAILED";
+        DrawText(title, cx - MeasureText(title, 40) / 2, cy - 120, 40, RED);
+        const char* sub = "Vane keeps the gold. You keep nothing.";
+        DrawText(sub, cx - MeasureText(sub, 16) / 2, cy - 68, 16, LIGHTGRAY);
     }
+
+    // turn count
+    const char* turns = TextFormat("Survived %d turn%s",
+                                    state.turn_count,
+                                    state.turn_count == 1 ? "" : "s");
+    DrawText(turns, cx - MeasureText(turns, 14) / 2, cy - 40, 14, GRAY);
+
+    // casualties
+    int y_offset = cy - 10;
+    bool any_dead = false;
+    for (int i = 0; i < (int)state.players.size(); i++) {
+        if (state.players[i].is_alive()) continue;
+        if (!any_dead) {
+            DrawText("Lost in action:", cx - 80, y_offset, 13, GRAY);
+            y_offset += 20;
+            any_dead = true;
+        }
+        const char* pname = i < (int)state.player_names.size()
+                          ? state.player_names[i].c_str() : "Unknown";
+        DrawText(TextFormat("  %s", pname), cx - 80, y_offset, 13, RED);
+        y_offset += 18;
+    }
+
+    if (!any_dead && state.win_state == WinState::VICTORY) {
+        DrawText("Full crew survived.", cx - MeasureText("Full crew survived.", 13) / 2,
+                 y_offset, 13, GREEN);
+        y_offset += 20;
+    }
+
+    // restart prompt
+    const char* restart = "Press R to try again";
+    DrawText(restart, cx - MeasureText(restart, 16) / 2,
+             cy + 80, 16, WHITE);
 }
