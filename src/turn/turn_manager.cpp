@@ -1,5 +1,5 @@
 #include "turn_manager.h"
-#include "combat.h"
+#include "combat/combat.h"
 #include "units/enemy.h"
 #include "raylib.h"
 #include <algorithm>

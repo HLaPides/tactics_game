@@ -1,6 +1,6 @@
 #pragma once
 #include "ability.h"
-#include "types.h"
+#include "core/types.h"
 
 namespace AbilityDefs {
     inline Ability make_shoot() {

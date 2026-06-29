@@ -1,6 +1,6 @@
 #pragma once
-#include "../types.h"
-#include "../ability.h"
+#include "../core/types.h"
+#include "../abilities/ability.h"
 #include <vector>
 #include <string>
 

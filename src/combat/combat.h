@@ -1,6 +1,6 @@
 #pragma once
 #include "units/unit.h"
-#include "map.h"
+#include "map/map.h"
 #include <vector>
 #include <utility>
 

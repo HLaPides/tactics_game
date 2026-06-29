@@ -1,6 +1,6 @@
 #include "game.h"
-#include "combat.h"
-#include "ability_defs.h"
+#include "combat/combat.h"
+#include "abilities/ability_defs.h"
 #include "units/enemy.h"
 #include "raylib.h"
 #include <algorithm>

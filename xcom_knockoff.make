@@ -206,39 +206,39 @@ endif
 # File Rules
 # #############################################
 
-$(OBJDIR)/main.o: src/main.cpp
+$(OBJDIR)/main.o: src/core/main.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/game.o: src/game.cpp
+$(OBJDIR)/game.o: src/core/game.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/input_handler.o: src/input_handler.cpp
+$(OBJDIR)/input_handler.o: src/ui/input_handler.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/turn_manager.o: src/turn_manager.cpp
+$(OBJDIR)/turn_manager.o: src/turn/turn_manager.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/ai_controller.o: src/ai_controller.cpp
+$(OBJDIR)/ai_controller.o: src/ai/ai_controller.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/renderer.o: src/renderer.cpp
+$(OBJDIR)/renderer.o: src/ui/renderer.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/floating_text.o: src/floating_text.cpp
+$(OBJDIR)/floating_text.o: src/ui/floating_text.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/map.o: src/map.cpp
+$(OBJDIR)/map.o: src/map/map.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/combat.o: src/combat.cpp
+$(OBJDIR)/combat.o: src/combat/combat.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
@@ -250,7 +250,7 @@ $(OBJDIR)/unit.o: src/units/unit.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
-$(OBJDIR)/ability.o: src/ability.cpp
+$(OBJDIR)/ability.o: src/abilities/ability.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 

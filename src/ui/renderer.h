@@ -1,7 +1,7 @@
 #pragma once
-#include "game_state.h"
-#include "combat.h"
-#include "types.h"
+#include "core/game_state.h"
+#include "combat/combat.h"
+#include "core/types.h"
 
 class Renderer {
 public:

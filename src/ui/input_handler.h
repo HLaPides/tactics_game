@@ -1,7 +1,7 @@
 #pragma once
-#include "types.h"
-#include "ability.h"
-#include "game_state.h"
+#include "core/types.h"
+#include "abilities/ability.h"
+#include "core/game_state.h"
 #include "raylib.h"
 #include <optional>
 #include <vector>

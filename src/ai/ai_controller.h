@@ -1,9 +1,9 @@
 #pragma once
 #include "units/unit.h"
 #include "units/enemy.h"
-#include "map.h"
-#include "combat.h"
-#include "floating_text.h"
+#include "map/map.h"
+#include "combat/combat.h"
+#include "ui/floating_text.h"
 #include <vector>
 #include <optional>
 

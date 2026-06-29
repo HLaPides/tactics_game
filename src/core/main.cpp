@@ -1,6 +1,6 @@
 #include "raylib.h"
-#include "game.h"
-#include "types.h"
+#include "core/game.h"
+#include "core/types.h"
 
 int main() {
     AppConfig config;

@@ -1,7 +1,7 @@
 #pragma once
-#include "game_state.h"
-#include "ai_controller.h"
-#include "types.h"
+#include "core/game_state.h"
+#include "ai/ai_controller.h"
+#include "core/types.h"
 
 class TurnManager {
 public:

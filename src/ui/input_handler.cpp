@@ -1,5 +1,5 @@
 #include "input_handler.h"
-#include "combat.h"
+#include "combat/combat.h"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>

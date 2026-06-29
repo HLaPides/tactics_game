@@ -1,9 +1,9 @@
 #pragma once
 #include "game_state.h"
-#include "input_handler.h"
-#include "turn_manager.h"
-#include "ai_controller.h"
-#include "renderer.h"
+#include "ui/input_handler.h"
+#include "turn/turn_manager.h"
+#include "ai/ai_controller.h"
+#include "ui/renderer.h"
 #include "types.h"
 #include <string>
 
