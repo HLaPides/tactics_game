@@ -5,6 +5,21 @@
 Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
     camera.rotation = 0.0f;
+
+    hud_texture = LoadTexture("src/assets/icons/hud.png");
+
+    icons.load("shoot",       "src/assets/icons/shoot.png");
+    icons.load("melee",       "src/assets/icons/melee.png");
+    icons.load("aimed_shot",  "src/assets/icons/aimed_shot.png");
+    icons.load("overwatch",   "src/assets/icons/overwatch.png");
+    icons.load("rush",        "src/assets/icons/rush.png");
+    icons.load("heal",        "src/assets/icons/heal.png");
+    icons.load("dirty_trick", "src/assets/icons/dirty_trick.png");
+}
+
+Renderer::~Renderer() {
+    if (hud_texture.id != 0)
+        UnloadTexture(hud_texture);
 }
 
 void Renderer::update_camera(int player_x, int player_y, int map_w) {
@@ -236,8 +251,8 @@ void Renderer::draw_attack_preview(const GameState& state) {
     };
     Vector2 screen_pos = GetWorldToScreen2D(world_pos, camera);
 
-    int panel_w = 200;
-    int panel_h = 110;
+    int panel_w = 220;
+    int panel_h = 130;
     int px      = (int)screen_pos.x - panel_w / 2;
     int py      = (int)screen_pos.y - panel_h - 8;
 
@@ -252,30 +267,30 @@ void Renderer::draw_attack_preview(const GameState& state) {
 
     Color hit_color = result.hit_chance >= 70 ? GREEN :
                       result.hit_chance >= 40 ? YELLOW : RED;
-    DrawText(TextFormat("%d%% to hit", result.hit_chance), px + 8, py + 6,  14, hit_color);
-    DrawText(TextFormat("%d%% crit",   result.crit_chance), px + 8, py + 22, 11, ORANGE);
+    DrawText(TextFormat("%d%% to hit", result.hit_chance), px + 8, py + 6,  16, hit_color);
+    DrawText(TextFormat("%d%% crit",   result.crit_chance), px + 8, py + 26, 13, ORANGE);
 
-    int       line_y = py + 38;
-    const int LINE_H = 12;
+    int       line_y = py + 46;
+    const int LINE_H = 14;
 
-    DrawText(TextFormat("aim      %+d", result.aim_component),     px + 8, line_y, 10, LIGHTGRAY);
+    DrawText(TextFormat("aim      %+d", result.aim_component),     px + 8, line_y, 12, LIGHTGRAY);
     line_y += LINE_H;
     if (result.flank_bonus > 0) {
-        DrawText(TextFormat("flank    %+d", result.flank_bonus),   px + 8, line_y, 10, GREEN);
+        DrawText(TextFormat("flank    %+d", result.flank_bonus),   px + 8, line_y, 12, GREEN);
         line_y += LINE_H;
     }
     if (result.range_penalty > 0) {
-        DrawText(TextFormat("range    -%d", result.range_penalty), px + 8, line_y, 10, RED);
+        DrawText(TextFormat("range    -%d", result.range_penalty), px + 8, line_y, 12, RED);
         line_y += LINE_H;
     }
-    DrawText(TextFormat("defense  -%d", result.defense_penalty),   px + 8, line_y, 10, LIGHTGRAY);
+    DrawText(TextFormat("defense  -%d", result.defense_penalty),   px + 8, line_y, 12, LIGHTGRAY);
     line_y += LINE_H;
     if (result.cover_penalty > 0) {
-        DrawText(TextFormat("cover    -%d", result.cover_penalty), px + 8, line_y, 10, SKYBLUE);
+        DrawText(TextFormat("cover    -%d", result.cover_penalty), px + 8, line_y, 12, SKYBLUE);
         line_y += LINE_H;
     }
     if (result.is_flanking)
-        DrawText("FLANKED", px + 8, line_y, 10, GREEN);
+        DrawText("FLANKED", px + 8, line_y, 12, GREEN);
 }
 
 void Renderer::draw_hud(const GameState& state) {
@@ -283,36 +298,48 @@ void Renderer::draw_hud(const GameState& state) {
     const unit& active = state.players[state.selected_player];
     int         bar_y  = config.screen_h - BAR_HEIGHT;
 
-    DrawRectangle(0, bar_y, config.screen_w, BAR_HEIGHT,
-                  ColorFromNormalized({0.13f, 0.13f, 0.13f, 1.0f}));
-    DrawLine(0, bar_y, config.screen_w, bar_y, GRAY);
+    // HUD background
+    if (hud_texture.id != 0) {
+        DrawTexturePro(hud_texture,
+            { 0, 0, (float)hud_texture.width, (float)hud_texture.height },
+            { 0, (float)bar_y, (float)config.screen_w, (float)BAR_HEIGHT },
+            { 0, 0 }, 0.0f, WHITE);
+    } else {
+        DrawRectangle(0, bar_y, config.screen_w, BAR_HEIGHT,
+                      ColorFromNormalized({0.13f, 0.13f, 0.13f, 1.0f}));
+    }
+    DrawLine(0, bar_y, config.screen_w, bar_y, Color{80, 60, 40, 255});
 
-    // unit name + overwatch indicator
+    // unit name
     const char* name = state.selected_player < (int)state.player_names.size()
                      ? state.player_names[state.selected_player].c_str()
                      : "Unit";
-    DrawText(name, 12, bar_y + 10, 16, WHITE);
+    DrawText(name, 12, bar_y + 8, 24, Color{60, 35, 15, 255});
 
     if (active.is_on_overwatch())
-        DrawText("[OVERWATCH]", 12 + MeasureText(name, 16) + 8,
-                 bar_y + 12, 12, SKYBLUE);
+        DrawText("[OVERWATCH]", 12 + MeasureText(name, 24) + 8,
+                 bar_y + 12, 14, SKYBLUE);
 
     // action pips
     for (int i = 0; i < 2; i++) {
-        Color pip = i < active.get_actions() ? SKYBLUE : DARKGRAY;
-        DrawCircle(12 + i * 16, bar_y + 36, 5, pip);
+        Color pip = i < active.get_actions()
+                  ? Color{50, 100, 180, 255}
+                  : Color{120, 100, 70, 255};
+        DrawCircle(14 + i * 18, bar_y + 40, 6, pip);
     }
 
-    // HP bar
-    DrawText("HP", 12, bar_y + 50, 12, GRAY);
-    DrawRectangle(30, bar_y + 52, 60, 8, DARKGRAY);
+    // HP
+    DrawText("HP", 12, bar_y + 56, 16, Color{80, 55, 30, 255});
+    DrawRectangle(38, bar_y + 58, 70, 10, Color{120, 100, 70, 255});
     float hp_frac  = (float)active.get_hp() / active.get_max_hp();
-    Color hp_color = hp_frac > 0.5f ? GREEN : (hp_frac > 0.25f ? ORANGE : RED);
-    DrawRectangle(30, bar_y + 52, (int)(60 * hp_frac), 8, hp_color);
+    Color hp_color = hp_frac > 0.5f ? Color{60, 160, 60, 255}
+                   : hp_frac > 0.25f ? Color{200, 140, 40, 255}
+                   : Color{180, 50, 50, 255};
+    DrawRectangle(38, bar_y + 58, (int)(70 * hp_frac), 10, hp_color);
     DrawText(TextFormat("%d/%d", active.get_hp(), active.get_max_hp()),
-             96, bar_y + 50, 12, GRAY);
+             114, bar_y + 56, 16, Color{80, 55, 30, 255});
 
-    DrawLine(130, bar_y + 8, 130, bar_y + BAR_HEIGHT - 8, GRAY);
+    DrawLine(155, bar_y + 8, 155, bar_y + BAR_HEIGHT - 8, Color{120, 90, 50, 255});
 
     // ability buttons
     const auto& abilities  = active.get_abilities();
@@ -328,53 +355,83 @@ void Renderer::draw_hud(const GameState& state) {
         bool cant_afford = (active.get_actions() < ab.get_cost() && ab.get_cost() > 0);
         bool unavailable = no_actions || on_cooldown || cant_afford;
 
-        Color border = is_active   ? SKYBLUE
-                     : unavailable ? DARKGRAY : GRAY;
-        Color label  = is_active   ? SKYBLUE
-                     : unavailable ? DARKGRAY : WHITE;
-        Color bg     = is_active   ? ColorFromNormalized({0.1f, 0.3f, 0.5f, 1.0f})
-                                   : ColorFromNormalized({0.18f, 0.18f, 0.18f, 1.0f});
-
+        Color bg = is_active
+                 ? ColorFromNormalized({0.1f, 0.25f, 0.45f, 0.85f})
+                 : ColorFromNormalized({0.15f, 0.10f, 0.05f, 0.55f});
         DrawRectangle(bx, by, BTN_W, BTN_H, bg);
+
+        Color border = is_active   ? Color{80, 140, 220, 255}
+                     : unavailable ? Color{100, 80, 55, 255}
+                                   : Color{140, 110, 70, 255};
         DrawRectangleLines(bx, by, BTN_W, BTN_H, border);
 
-        const char* lbl = ab.get_label().c_str();
-        DrawText(lbl, bx + BTN_W/2 - MeasureText(lbl, 13)/2, by + 8, 13, label);
+        if (icons.has(ab.get_id())) {
+            Texture2D tex      = icons.get(ab.get_id());
+            int       icon_size = 56;
+            int       icon_x   = bx + BTN_W / 2 - icon_size / 2;
+            int       icon_y   = by + 2;
+            Color     tint     = unavailable ? Color{120, 120, 120, 180} : WHITE;
+            DrawTexturePro(tex,
+                { 0, 0, (float)tex.width, (float)tex.height },
+                { (float)icon_x, (float)icon_y, (float)icon_size, (float)icon_size },
+                { 0, 0 }, 0.0f, tint);
 
+            Color label = is_active   ? Color{80, 160, 220, 255}
+                        : unavailable ? Color{100, 80, 55, 255}
+                                      : Color{60, 35, 15, 255};
+            const char* lbl = ab.get_label().c_str();
+            DrawText(lbl, bx + BTN_W/2 - MeasureText(lbl, 13)/2, by + 60, 13, label);
+        } else {
+            Color label = is_active   ? Color{80, 160, 220, 255}
+                        : unavailable ? Color{100, 80, 55, 255}
+                                      : Color{60, 35, 15, 255};
+            const char* lbl = ab.get_label().c_str();
+            DrawText(lbl, bx + BTN_W/2 - MeasureText(lbl, 16)/2, by + 10, 16, label);
+        }
+
+        // cost / cooldown
         if (on_cooldown) {
             const char* cd = TextFormat("CD: %d", ab.get_cooldown());
-            DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 10)/2, by + 44, 10, RED);
+            DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 12)/2, by + 76, 12,
+                     Color{180, 60, 60, 255});
         } else if (ab.get_cost() == 0) {
-            DrawText("free", bx + BTN_W/2 - MeasureText("free", 10)/2,
-                     by + 44, 10, GREEN);
+            DrawText("free", bx + BTN_W/2 - MeasureText("free", 12)/2,
+                     by + 76, 12, Color{60, 160, 60, 255});
         } else {
-            const char* cost = TextFormat("%d action%s", ab.get_cost(),
-                                          ab.get_cost() > 1 ? "s" : "");
-            DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 10)/2,
-                     by + 44, 10, DARKGRAY);
+            const char* cost = TextFormat("%da", ab.get_cost());
+            DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 12)/2,
+                     by + 76, 12, Color{100, 80, 55, 255});
         }
     }
 
-    // right side — divider
-    DrawLine(config.screen_w - 120, bar_y + 8,
-             config.screen_w - 120, bar_y + BAR_HEIGHT - 8, GRAY);
+    // right side divider
+    DrawLine(config.screen_w - 150, bar_y + 8,
+             config.screen_w - 150, bar_y + BAR_HEIGHT - 8,
+             Color{120, 90, 50, 255});
 
-    // turn counter — top line
+    // turn counter
     const char* turn_num = TextFormat("Turn %d", state.turn_count + 1);
-    DrawText(turn_num, config.screen_w - 112, bar_y + 8, 11, DARKGRAY);
+    DrawText(turn_num, config.screen_w - 142, bar_y + 8, 16,
+             Color{100, 75, 45, 255});
 
-    // phase label — second line
+    // phase label
     const char* turn_label = state.phase == GamePhase::PLAYER_TURN
                            ? "Player turn" : "Enemy turn";
-    DrawText(turn_label, config.screen_w - 112, bar_y + 22, 11, GRAY);
+    DrawText(turn_label, config.screen_w - 142, bar_y + 28, 16,
+             Color{80, 55, 30, 255});
 
-    // end turn button — bottom of panel
-    Color end_col = (state.phase == GamePhase::PLAYER_TURN) ? WHITE : DARKGRAY;
-    DrawRectangleLines(config.screen_w - 112, bar_y + 38,
-                       100, 28, end_col);
+    // end turn button
+    Color end_border = (state.phase == GamePhase::PLAYER_TURN)
+                     ? Color{140, 110, 70, 255}
+                     : Color{100, 80, 55, 255};
+    Color end_text   = (state.phase == GamePhase::PLAYER_TURN)
+                     ? Color{60, 35, 15, 255}
+                     : Color{100, 80, 55, 255};
+    DrawRectangle(config.screen_w - 142, bar_y + 52, 130, 36,
+                  ColorFromNormalized({0.15f, 0.10f, 0.05f, 0.45f}));
+    DrawRectangleLines(config.screen_w - 142, bar_y + 52, 130, 36, end_border);
     DrawText("End turn",
-             config.screen_w - 112 + 10,
-             bar_y + 45, 13, end_col);
+             config.screen_w - 142 + 16, bar_y + 62, 16, end_text);
 }
 
 void Renderer::draw_game_over(const GameState& state) {
@@ -388,46 +445,46 @@ void Renderer::draw_game_over(const GameState& state) {
 
     if (state.win_state == WinState::VICTORY) {
         const char* title = "MUTINY SUCCESSFUL";
-        DrawText(title, cx - MeasureText(title, 40) / 2, cy - 120, 40, GOLD);
-        const char* sub = "The gold and ship are yours. Vane never saw it coming.";
-        DrawText(sub, cx - MeasureText(sub, 16) / 2, cy - 68, 16, LIGHTGRAY);
+        DrawText(title, cx - MeasureText(title, 48) / 2, cy - 130, 48, GOLD);
+        const char* sub = "The gold and ship are yours.";
+        DrawText(sub, cx - MeasureText(sub, 20) / 2, cy - 72, 20, LIGHTGRAY);
     } else {
         const char* title = "MUTINY FAILED";
-        DrawText(title, cx - MeasureText(title, 40) / 2, cy - 120, 40, RED);
-        const char* sub = "Vane keeps the gold. You keep nothing.";
-        DrawText(sub, cx - MeasureText(sub, 16) / 2, cy - 68, 16, LIGHTGRAY);
+        DrawText(title, cx - MeasureText(title, 48) / 2, cy - 130, 48, RED);
+        const char* sub = "It was worth a shot.";
+        DrawText(sub, cx - MeasureText(sub, 20) / 2, cy - 72, 20, LIGHTGRAY);
     }
 
     const char* turns = TextFormat("Survived %d turn%s",
                                     state.turn_count,
                                     state.turn_count == 1 ? "" : "s");
-    DrawText(turns, cx - MeasureText(turns, 14) / 2, cy - 40, 14, GRAY);
+    DrawText(turns, cx - MeasureText(turns, 18) / 2, cy - 44, 18, GRAY);
 
     int  y_offset = cy - 10;
     bool any_dead = false;
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (state.players[i].is_alive()) continue;
         if (!any_dead) {
-            DrawText("Killed in action:", cx - 80, y_offset, 13, GRAY);
-            y_offset += 20;
+            DrawText("Killed in action:", cx - 100, y_offset, 16, GRAY);
+            y_offset += 24;
             any_dead = true;
         }
         const char* pname = i < (int)state.player_names.size()
                           ? state.player_names[i].c_str() : "Unknown";
-        DrawText(TextFormat("  %s", pname), cx - 80, y_offset, 13, RED);
-        y_offset += 18;
+        DrawText(TextFormat("  %s", pname), cx - 100, y_offset, 16, RED);
+        y_offset += 22;
     }
 
     if (!any_dead && state.win_state == WinState::VICTORY) {
         DrawText("Full crew survived.",
-                 cx - MeasureText("Full crew survived.", 13) / 2,
-                 y_offset, 13, GREEN);
-        y_offset += 20;
+                 cx - MeasureText("Full crew survived.", 16) / 2,
+                 y_offset, 16, GREEN);
+        y_offset += 24;
     }
 
     if (state.win_state == WinState::DEFEAT) {
         const char* restart = "Press R to try again";
-        DrawText(restart, cx - MeasureText(restart, 16) / 2,
-                 cy + 80, 16, WHITE);
+        DrawText(restart, cx - MeasureText(restart, 20) / 2,
+                 cy + 90, 20, WHITE);
     }
 }

@@ -50,7 +50,7 @@ struct UnitStats {
 struct AppConfig {
     int screen_w  = 1280;
     int screen_h  = 720;
-    int grid_h    = 640;
+    int grid_h    = 620;   // reduced to account for taller HUD
     int tile_size = 32;
 };
 

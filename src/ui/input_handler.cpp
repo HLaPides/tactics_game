@@ -17,11 +17,11 @@ bool InputHandler::mouse_on_grid(Vector2 mouse) const {
 }
 
 bool InputHandler::clicked_end_turn(Vector2 mouse) const {
-    int bar_y = config.screen_h - 80;
-    int ex    = config.screen_w - END_TURN_X_OFFSET;
-    int ey    = bar_y + END_TURN_Y_OFFSET;
-    return mouse.x >= ex && mouse.x < ex + END_TURN_W &&
-           mouse.y >= ey && mouse.y < ey + END_TURN_H;
+    int bar_y = config.screen_h - 100;
+    int ex    = config.screen_w - 142;
+    int ey    = bar_y + 52;
+    return mouse.x >= ex && mouse.x < ex + 130 &&
+           mouse.y >= ey && mouse.y < ey + 36;
 }
 
 int InputHandler::clicked_ability(Vector2 mouse, const unit& active) const {
