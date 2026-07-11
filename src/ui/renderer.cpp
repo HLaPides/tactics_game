@@ -1,6 +1,7 @@
 #include "renderer.h"
 #include "raylib.h"
 #include <algorithm>
+#include <cmath>
 
 Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
@@ -15,11 +16,64 @@ Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     icons.load("rush",        "src/assets/icons/rush.png");
     icons.load("heal",        "src/assets/icons/heal.png");
     icons.load("dirty_trick", "src/assets/icons/dirty_trick.png");
+
+    load_portraits();
 }
 
 Renderer::~Renderer() {
     if (hud_texture.id != 0)
         UnloadTexture(hud_texture);
+    for (auto& [name, tex] : portraits)
+        if (tex.id != 0) UnloadTexture(tex);
+}
+
+void Renderer::load_portraits() {
+    auto load = [&](const std::string& name, const std::string& path) {
+        Texture2D tex = LoadTexture(path.c_str());
+        if (tex.id != 0) portraits[name] = tex;
+    };
+    load("Swashbuckler", "src/assets/portraits/pirate_01.png");
+    load("Bosun",        "src/assets/portraits/pirate_02.png");
+    load("Sharpshooter", "src/assets/portraits/pirate_03.png");
+    load("Medic",        "src/assets/portraits/pirate_04.png");
+}
+
+void Renderer::draw_portrait(const GameState& state, int bar_y) {
+    if (state.players.empty()) return;
+
+    const std::string& pname = state.selected_player < (int)state.player_names.size()
+                             ? state.player_names[state.selected_player]
+                             : "";
+
+    int port_h = BAR_HEIGHT;
+    int port_w = port_h;
+    int port_x = PORTRAIT_X;
+    int port_y = bar_y;
+
+    auto it = portraits.find(pname);
+    if (it != portraits.end() && it->second.id != 0) {
+        Texture2D& tex = it->second;
+        DrawTexturePro(tex,
+            { 0, 0, (float)tex.width, (float)tex.height },
+            { (float)port_x, (float)port_y, (float)port_w, (float)port_h },
+            { 0, 0 }, 0.0f, WHITE);
+    } else {
+        DrawRectangle(port_x, port_y, port_w, port_h, Color{80, 30, 30, 255});
+        const char* init = pname.empty() ? "?" : pname.substr(0,1).c_str();
+        DrawText(init, port_x + port_w/2 - MeasureText(init, 32)/2,
+                 port_y + port_h/2 - 16, 32, WHITE);
+    }
+
+    DrawRectangleLines(port_x, port_y, port_w, port_h, Color{160, 130, 60, 255});
+
+    // name and overwatch only
+    int text_x = port_x + port_w + 12;
+    const char* name = pname.empty() ? "Unit" : pname.c_str();
+    DrawText(name, text_x, bar_y + 8, 22, Color{60, 35, 15, 255});
+
+    const unit& active = state.players[state.selected_player];
+    if (active.is_on_overwatch())
+        DrawText("[OVERWATCH]", text_x, bar_y + 34, 13, SKYBLUE);
 }
 
 void Renderer::update_camera(int player_x, int player_y, int map_w) {
@@ -310,36 +364,61 @@ void Renderer::draw_hud(const GameState& state) {
     }
     DrawLine(0, bar_y, config.screen_w, bar_y, Color{80, 60, 40, 255});
 
-    // unit name
-    const char* name = state.selected_player < (int)state.player_names.size()
-                     ? state.player_names[state.selected_player].c_str()
-                     : "Unit";
-    DrawText(name, 12, bar_y + 8, 24, Color{60, 35, 15, 255});
+    // portrait + name + overwatch
+    draw_portrait(state, bar_y);
 
-    if (active.is_on_overwatch())
-        DrawText("[OVERWATCH]", 12 + MeasureText(name, 24) + 8,
-                 bar_y + 12, 14, SKYBLUE);
+    // divider after portrait section
+    DrawLine(PORTRAIT_X + BAR_HEIGHT + 10, bar_y + 8,
+             PORTRAIT_X + BAR_HEIGHT + 10, bar_y + BAR_HEIGHT - 8,
+             Color{120, 90, 50, 255});
 
-    // action pips
-    for (int i = 0; i < 2; i++) {
-        Color pip = i < active.get_actions()
-                  ? Color{50, 100, 180, 255}
-                  : Color{120, 100, 70, 255};
-        DrawCircle(14 + i * 18, bar_y + 40, 6, pip);
+    // stat bars — right of portrait
+    int stat_x   = PORTRAIT_X + BAR_HEIGHT + 35;
+    int bar_w    = 130;
+    int bar_h    = 14;
+    int hp_bar_y = bar_y + 40;
+    int ac_bar_y = bar_y + 74;
+
+    // HP bar
+    float hp_frac = (float)active.get_hp() / (float)active.get_max_hp();
+    Color hp_fill = hp_frac > 0.5f ? Color{45, 120, 45, 255}
+                  : hp_frac > 0.25f ? Color{180, 120, 30, 255}
+                  : Color{160, 40, 40, 255};
+
+    DrawText("HP", stat_x - 24, hp_bar_y + 1, 12, Color{80, 55, 30, 255});
+    DrawRectangle(stat_x, hp_bar_y, bar_w, bar_h, Color{40, 25, 10, 255});
+    int hp_fill_w = (int)(bar_w * hp_frac);
+    if (hp_fill_w > 0) {
+        DrawRectangle(stat_x, hp_bar_y, hp_fill_w, bar_h, hp_fill);
+        DrawRectangle(stat_x, hp_bar_y, hp_fill_w, 2, Color{80, 200, 80, 120});
     }
-
-    // HP
-    DrawText("HP", 12, bar_y + 56, 16, Color{80, 55, 30, 255});
-    DrawRectangle(38, bar_y + 58, 70, 10, Color{120, 100, 70, 255});
-    float hp_frac  = (float)active.get_hp() / active.get_max_hp();
-    Color hp_color = hp_frac > 0.5f ? Color{60, 160, 60, 255}
-                   : hp_frac > 0.25f ? Color{200, 140, 40, 255}
-                   : Color{180, 50, 50, 255};
-    DrawRectangle(38, bar_y + 58, (int)(70 * hp_frac), 10, hp_color);
+    for (int j = 1; j < active.get_max_hp(); j++) {
+        int seg_x = stat_x + (int)(bar_w * j / (float)active.get_max_hp());
+        DrawLine(seg_x, hp_bar_y, seg_x, hp_bar_y + bar_h, Color{20, 12, 5, 160});
+    }
+    DrawRectangleLines(stat_x, hp_bar_y, bar_w, bar_h, Color{140, 110, 50, 255});
     DrawText(TextFormat("%d/%d", active.get_hp(), active.get_max_hp()),
-             114, bar_y + 56, 16, Color{80, 55, 30, 255});
+             stat_x + bar_w + 6, hp_bar_y + 1, 12, Color{80, 55, 30, 255});
 
-    DrawLine(155, bar_y + 8, 155, bar_y + BAR_HEIGHT - 8, Color{120, 90, 50, 255});
+    // AP bar
+    DrawText("AP", stat_x - 24, ac_bar_y + 1, 12, Color{80, 55, 30, 255});
+    DrawRectangle(stat_x, ac_bar_y, bar_w, bar_h, Color{20, 20, 40, 255});
+    int ac_fill_w = (int)(bar_w * active.get_actions() / 2.0f);
+    if (ac_fill_w > 0) {
+        DrawRectangle(stat_x, ac_bar_y, ac_fill_w, bar_h, Color{40, 80, 180, 255});
+        DrawRectangle(stat_x, ac_bar_y, ac_fill_w, 2, Color{80, 140, 220, 120});
+    }
+    DrawLine(stat_x + bar_w / 2, ac_bar_y,
+             stat_x + bar_w / 2, ac_bar_y + bar_h,
+             Color{20, 12, 5, 160});
+    DrawRectangleLines(stat_x, ac_bar_y, bar_w, bar_h, Color{140, 110, 50, 255});
+    DrawText(TextFormat("%d/2", active.get_actions()),
+             stat_x + bar_w + 6, ac_bar_y + 1, 12, Color{80, 55, 30, 255});
+
+    // divider before ability buttons
+    DrawLine(stat_x + bar_w + 40, bar_y + 8,
+             stat_x + bar_w + 40, bar_y + BAR_HEIGHT - 8,
+             Color{120, 90, 50, 255});
 
     // ability buttons
     const auto& abilities  = active.get_abilities();
@@ -389,19 +468,19 @@ void Renderer::draw_hud(const GameState& state) {
             DrawText(lbl, bx + BTN_W/2 - MeasureText(lbl, 16)/2, by + 10, 16, label);
         }
 
-        // cost / cooldown
-        if (on_cooldown) {
-            const char* cd = TextFormat("CD: %d", ab.get_cooldown());
-            DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 12)/2, by + 76, 12,
-                     Color{180, 60, 60, 255});
-        } else if (ab.get_cost() == 0) {
-            DrawText("free", bx + BTN_W/2 - MeasureText("free", 12)/2,
-                     by + 76, 12, Color{60, 160, 60, 255});
-        } else {
-            const char* cost = TextFormat("%da", ab.get_cost());
-            DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 12)/2,
-                     by + 76, 12, Color{100, 80, 55, 255});
-        }
+if (on_cooldown) {
+    const char* cd = TextFormat("CD: %d", ab.get_cooldown());
+    DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 13)/2, by + 74, 13,
+             Color{200, 60, 60, 255});
+} else if (ab.get_cost() == 0) {
+    DrawText("free", bx + BTN_W/2 - MeasureText("free", 13)/2,
+             by + 74, 13, Color{60, 180, 60, 255});
+} else {
+    const char* cost = TextFormat("%d action%s", ab.get_cost(),
+                                   ab.get_cost() > 1 ? "s" : "");
+    DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 13)/2,
+             by + 74, 13, Color{40, 20, 5, 255});
+}
     }
 
     // right side divider

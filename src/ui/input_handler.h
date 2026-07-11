@@ -25,7 +25,7 @@ private:
     static const int BTN_W             = 80;
     static const int BTN_H             = 60;
     static const int BTN_Y_OFFSET      = 10;
-    static const int BTN_START_X       = 148;
+    static const int BTN_START_X       = 350;
     static const int BTN_GAP           = 8;
     static const int END_TURN_W        = 100;
     static const int END_TURN_H        = 28;

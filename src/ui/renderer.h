@@ -4,6 +4,8 @@
 #include "../core/types.h"
 #include "icon_registry.h"
 #include "raylib.h"
+#include <unordered_map>
+#include <string>
 
 class Renderer {
 public:
@@ -18,6 +20,11 @@ private:
     IconRegistry     icons;
     Texture2D        hud_texture = {};
 
+    std::unordered_map<std::string, Texture2D> portraits;
+
+    void load_portraits();
+    void draw_portrait(const GameState& state, int bar_y);
+
     void draw_map(const GameState& state);
     void draw_range_overlay(const GameState& state);
     void draw_target_highlights(const GameState& state);
@@ -31,10 +38,8 @@ private:
     static const int BTN_W          = 90;
     static const int BTN_H          = 90;
     static const int BTN_Y_OFFSET   = 5;
-    static const int BTN_START_X    = 160;
+    static const int BTN_START_X    = 350;
     static const int BTN_GAP        = 10;
-    static const int END_TURN_W     = 110;
-    static const int END_TURN_H     = 32;
-    static const int END_TURN_X_OFF = 124;
-    static const int END_TURN_Y_OFF = 34;
+    static const int PORTRAIT_SIZE  = 84;
+    static const int PORTRAIT_X     = 8;
 };
