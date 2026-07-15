@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
@@ -17,12 +18,16 @@ Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     icons.load("heal",        "src/assets/icons/heal.png");
     icons.load("dirty_trick", "src/assets/icons/dirty_trick.png");
 
+    tileset = LoadTexture("levels/tileset_03.png");
+    printf("[RENDERER] tileset id=%d w=%d h=%d\n",
+           tileset.id, tileset.width, tileset.height);
+
     load_portraits();
 }
 
 Renderer::~Renderer() {
-    if (hud_texture.id != 0)
-        UnloadTexture(hud_texture);
+    if (hud_texture.id != 0) UnloadTexture(hud_texture);
+    if (tileset.id != 0)     UnloadTexture(tileset);
     for (auto& [name, tex] : portraits)
         if (tex.id != 0) UnloadTexture(tex);
 }
@@ -36,6 +41,16 @@ void Renderer::load_portraits() {
     load("Bosun",        "src/assets/portraits/pirate_02.png");
     load("Sharpshooter", "src/assets/portraits/pirate_03.png");
     load("Medic",        "src/assets/portraits/pirate_04.png");
+}
+
+void Renderer::draw_tile(int tile_id, int x, int y) {
+    if (tile_id <= 0 || tileset.id == 0) return;
+    int idx   = tile_id - 1;          // 1-based → 0-based
+    int src_x = idx * 32;             // horizontal strip, 32px per tile
+    DrawTexturePro(tileset,
+        { (float)src_x, 0, 32, 32 },
+        { (float)x, (float)y, (float)config.tile_size, (float)config.tile_size },
+        { 0, 0 }, 0.0f, WHITE);
 }
 
 void Renderer::draw_portrait(const GameState& state, int bar_y) {
@@ -66,7 +81,6 @@ void Renderer::draw_portrait(const GameState& state, int bar_y) {
 
     DrawRectangleLines(port_x, port_y, port_w, port_h, Color{160, 130, 60, 255});
 
-    // name and overwatch only
     int text_x = port_x + port_w + 12;
     const char* name = pname.empty() ? "Unit" : pname.c_str();
     DrawText(name, text_x, bar_y + 8, 22, Color{60, 35, 15, 255});
@@ -111,21 +125,30 @@ void Renderer::draw_frame(const GameState& state) {
 void Renderer::draw_map(const GameState& state) {
     const auto& tiles     = state.map.get_tiles();
     int         tile_size = config.tile_size;
+
     for (int row = 0; row < (int)tiles.size(); row++) {
         for (int col = 0; col < (int)tiles[row].size(); col++) {
             int         x = col * tile_size;
             int         y = row * tile_size;
             const Tile& t = tiles[row][col];
-            switch (t.type) {
-                case TILE_WALL:    DrawRectangle(x, y, tile_size, tile_size, GRAY);      break;
-                case TILE_BARREL:  DrawRectangle(x, y, tile_size, tile_size, BROWN);     break;
-                case TILE_RAILING: DrawRectangle(x, y, tile_size, tile_size, DARKBROWN); break;
-                default:
-                    if (t.is_objective)
-                        DrawRectangle(x, y, tile_size, tile_size, Fade(GOLD, 0.4f));
-                    break;
+
+            if (tileset.id != 0 && t.tile_id > 0) {
+                draw_tile(t.tile_id, x, y);
+            } else {
+                // fallback colored rectangles
+                switch (t.type) {
+                    case TILE_WALL:
+                        DrawRectangle(x, y, tile_size, tile_size, GRAY); break;
+                    case TILE_BARREL:
+                        DrawRectangle(x, y, tile_size, tile_size, BROWN); break;
+                    case TILE_RAILING:
+                        DrawRectangle(x, y, tile_size, tile_size, DARKBROWN); break;
+                    case TILE_OBJECTIVE:
+                        DrawRectangle(x, y, tile_size, tile_size, Fade(GOLD, 0.4f)); break;
+                    default:
+                        DrawRectangle(x, y, tile_size, tile_size, Color{50, 35, 20, 255}); break;
+                }
             }
-            DrawRectangleLines(x, y, tile_size, tile_size, BLACK);
         }
     }
 }
@@ -352,7 +375,6 @@ void Renderer::draw_hud(const GameState& state) {
     const unit& active = state.players[state.selected_player];
     int         bar_y  = config.screen_h - BAR_HEIGHT;
 
-    // HUD background
     if (hud_texture.id != 0) {
         DrawTexturePro(hud_texture,
             { 0, 0, (float)hud_texture.width, (float)hud_texture.height },
@@ -364,22 +386,18 @@ void Renderer::draw_hud(const GameState& state) {
     }
     DrawLine(0, bar_y, config.screen_w, bar_y, Color{80, 60, 40, 255});
 
-    // portrait + name + overwatch
     draw_portrait(state, bar_y);
 
-    // divider after portrait section
     DrawLine(PORTRAIT_X + BAR_HEIGHT + 10, bar_y + 8,
              PORTRAIT_X + BAR_HEIGHT + 10, bar_y + BAR_HEIGHT - 8,
              Color{120, 90, 50, 255});
 
-    // stat bars — right of portrait
     int stat_x   = PORTRAIT_X + BAR_HEIGHT + 35;
     int bar_w    = 130;
     int bar_h    = 14;
     int hp_bar_y = bar_y + 40;
     int ac_bar_y = bar_y + 74;
 
-    // HP bar
     float hp_frac = (float)active.get_hp() / (float)active.get_max_hp();
     Color hp_fill = hp_frac > 0.5f ? Color{45, 120, 45, 255}
                   : hp_frac > 0.25f ? Color{180, 120, 30, 255}
@@ -400,7 +418,6 @@ void Renderer::draw_hud(const GameState& state) {
     DrawText(TextFormat("%d/%d", active.get_hp(), active.get_max_hp()),
              stat_x + bar_w + 6, hp_bar_y + 1, 12, Color{80, 55, 30, 255});
 
-    // AP bar
     DrawText("AP", stat_x - 24, ac_bar_y + 1, 12, Color{80, 55, 30, 255});
     DrawRectangle(stat_x, ac_bar_y, bar_w, bar_h, Color{20, 20, 40, 255});
     int ac_fill_w = (int)(bar_w * active.get_actions() / 2.0f);
@@ -415,12 +432,10 @@ void Renderer::draw_hud(const GameState& state) {
     DrawText(TextFormat("%d/2", active.get_actions()),
              stat_x + bar_w + 6, ac_bar_y + 1, 12, Color{80, 55, 30, 255});
 
-    // divider before ability buttons
     DrawLine(stat_x + bar_w + 40, bar_y + 8,
              stat_x + bar_w + 40, bar_y + BAR_HEIGHT - 8,
              Color{120, 90, 50, 255});
 
-    // ability buttons
     const auto& abilities  = active.get_abilities();
     bool        no_actions = (active.get_actions() <= 0);
 
@@ -468,38 +483,34 @@ void Renderer::draw_hud(const GameState& state) {
             DrawText(lbl, bx + BTN_W/2 - MeasureText(lbl, 16)/2, by + 10, 16, label);
         }
 
-if (on_cooldown) {
-    const char* cd = TextFormat("CD: %d", ab.get_cooldown());
-    DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 13)/2, by + 74, 13,
-             Color{200, 60, 60, 255});
-} else if (ab.get_cost() == 0) {
-    DrawText("free", bx + BTN_W/2 - MeasureText("free", 13)/2,
-             by + 74, 13, Color{60, 180, 60, 255});
-} else {
-    const char* cost = TextFormat("%d action%s", ab.get_cost(),
-                                   ab.get_cost() > 1 ? "s" : "");
-    DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 13)/2,
-             by + 74, 13, Color{40, 20, 5, 255});
-}
+        if (on_cooldown) {
+            const char* cd = TextFormat("CD: %d", ab.get_cooldown());
+            DrawText(cd, bx + BTN_W/2 - MeasureText(cd, 13)/2, by + 74, 13,
+                     Color{200, 60, 60, 255});
+        } else if (ab.get_cost() == 0) {
+            DrawText("free", bx + BTN_W/2 - MeasureText("free", 13)/2,
+                     by + 74, 13, Color{60, 180, 60, 255});
+        } else {
+            const char* cost = TextFormat("%d action%s", ab.get_cost(),
+                                           ab.get_cost() > 1 ? "s" : "");
+            DrawText(cost, bx + BTN_W/2 - MeasureText(cost, 13)/2,
+                     by + 74, 13, Color{40, 20, 5, 255});
+        }
     }
 
-    // right side divider
     DrawLine(config.screen_w - 150, bar_y + 8,
              config.screen_w - 150, bar_y + BAR_HEIGHT - 8,
              Color{120, 90, 50, 255});
 
-    // turn counter
     const char* turn_num = TextFormat("Turn %d", state.turn_count + 1);
     DrawText(turn_num, config.screen_w - 142, bar_y + 8, 16,
              Color{100, 75, 45, 255});
 
-    // phase label
     const char* turn_label = state.phase == GamePhase::PLAYER_TURN
                            ? "Player turn" : "Enemy turn";
     DrawText(turn_label, config.screen_w - 142, bar_y + 28, 16,
              Color{80, 55, 30, 255});
 
-    // end turn button
     Color end_border = (state.phase == GamePhase::PLAYER_TURN)
                      ? Color{140, 110, 70, 255}
                      : Color{100, 80, 55, 255};

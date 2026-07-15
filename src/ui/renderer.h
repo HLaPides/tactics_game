@@ -18,12 +18,14 @@ private:
     const AppConfig& config;
     Camera2D         camera = { {0,0}, {0,0}, 0.0f, 1.0f };
     IconRegistry     icons;
-    Texture2D        hud_texture = {};
+    Texture2D        hud_texture  = {};
+    Texture2D        tileset      = {};  // tileset_03.png
 
     std::unordered_map<std::string, Texture2D> portraits;
 
     void load_portraits();
     void draw_portrait(const GameState& state, int bar_y);
+    void draw_tile(int tile_id, int x, int y);
 
     void draw_map(const GameState& state);
     void draw_range_overlay(const GameState& state);

@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-enum TileType  { TILE_FLOOR, TILE_WALL, TILE_BARREL, TILE_RAILING };
+enum TileType  { TILE_FLOOR, TILE_WALL, TILE_BARREL, TILE_RAILING, TILE_OBJECTIVE };
 enum CoverType { COVER_NONE, COVER_HALF, COVER_FULL };
 
 struct CoverFaces { bool north, south, east, west; };
@@ -13,6 +13,7 @@ struct Tile {
     CoverFaces faces        = {false, false, false, false};
     bool       walkable     = true;
     bool       is_objective = false;
+    int        tile_id      = 0;
 };
 
 struct SpawnPoint {
@@ -43,5 +44,12 @@ private:
     std::vector<std::vector<Tile>> tiles;
     std::vector<SpawnPoint>        player_spawns;
     std::vector<SpawnPoint>        enemy_spawns;
-    static Tile make_tile(char c);
+
+    Tile tile_from_id(int id) const;
+
+    // minimal JSON helpers
+    static std::string      read_file(const std::string& path);
+    static int              json_int(const std::string& src, const std::string& key, int def = 0);
+    static std::string      json_string(const std::string& src, const std::string& key, const std::string& def = "");
+    static std::vector<int> json_int_array(const std::string& src, const std::string& key);
 };

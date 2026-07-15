@@ -46,7 +46,7 @@ void game::start_mission() {
     reset_mission_state();
 
     std::vector<std::string> levels = {
-        level_dir + "/ship_01.txt"
+    level_dir + "/mutiny_map.tmj"
     };
 
     std::string path = levels[campaign.mission_index % (int)levels.size()];
