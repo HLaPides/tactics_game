@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstdio>
 
-//assets hardcoded in for now, will have to fix later
 Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
     camera.rotation = 0.0f;
@@ -283,7 +282,6 @@ void Renderer::draw_target_highlights(const GameState& state) {
 void Renderer::draw_units(const GameState& state) {
     int tile_size = config.tile_size;
 
-    // collect all draw calls and sort south to north so southern units draw on top
     struct DrawCall { int row; bool is_player; int index; };
     std::vector<DrawCall> calls;
 
@@ -306,18 +304,19 @@ void Renderer::draw_units(const GameState& state) {
             int tx = e.get_x_pos() * tile_size;
             int ty = e.get_y_pos() * tile_size;
 
-            // determine enemy type by max_hp
             std::string ekey = "E";
-            int hp = e.get_max_hp();
-            if (hp >= 10)     ekey = "C";
-            else if (hp >= 5) ekey = "G";
+            switch (e.get_type()) {
+                case EnemyType::GUARD:   ekey = "G"; break;
+                case EnemyType::CAPTAIN: ekey = "C"; break;
+                default:                 ekey = "E"; break;
+            }
 
             auto it = enemy_sprites.find(ekey);
             if (it != enemy_sprites.end() && it->second.id != 0) {
                 int dx = tx - (SPR_W - tile_size) / 2;
                 int dy = ty - (SPR_H - tile_size);
                 DrawTexturePro(it->second,
-                    { 0, 0, (float)SPR_W, (float)SPR_H },
+                    { 0, 0, (float)it->second.width, (float)it->second.height },
                     { (float)dx, (float)dy, (float)SPR_W, (float)SPR_H },
                     { 0, 0 }, 0.0f, WHITE);
             } else {
@@ -327,7 +326,6 @@ void Renderer::draw_units(const GameState& state) {
             if (call.index == state.target_index && state.mode != ActionMode::HEAL)
                 DrawRectangleLines(tx - 2, ty - 2, tile_size + 4, tile_size + 4, YELLOW);
 
-            // HP pips above sprite
             int pip_y = ty - (SPR_H - tile_size) - 8;
             for (int j = 0; j < e.get_max_hp(); j++) {
                 Color pip = j < e.get_hp() ? GREEN : DARKGRAY;
@@ -345,12 +343,11 @@ void Renderer::draw_units(const GameState& state) {
             auto it = unit_sprites.find(pname);
 
             if (it != unit_sprites.end() && it->second.id != 0) {
-                int dx = tx - (SPR_W - tile_size) / 2;
-                int dy = ty - (SPR_H - tile_size);
-                // dim unselected units slightly
+                int   dx   = tx - (SPR_W - tile_size) / 2;
+                int   dy   = ty - (SPR_H - tile_size);
                 Color tint = is_selected ? WHITE : Color{200, 200, 200, 255};
                 DrawTexturePro(it->second,
-                    { 0, 0, (float)SPR_W, (float)SPR_H },
+                    { 0, 0, (float)it->second.width, (float)it->second.height },
                     { (float)dx, (float)dy, (float)SPR_W, (float)SPR_H },
                     { 0, 0 }, 0.0f, tint);
             } else {
@@ -358,7 +355,6 @@ void Renderer::draw_units(const GameState& state) {
                               is_selected ? RED : Color{150, 30, 30, 255});
             }
 
-            // selection ring at tile level
             if (is_selected)
                 DrawRectangleLines(tx - 1, ty - 1, tile_size + 2, tile_size + 2, WHITE);
 
@@ -368,7 +364,6 @@ void Renderer::draw_units(const GameState& state) {
             if (p.is_on_overwatch())
                 DrawText("OW", tx + 2, ty + 2, 11, SKYBLUE);
 
-            // HP pips above sprite
             int pip_y = ty - (SPR_H - tile_size) - 8;
             for (int j = 0; j < p.get_max_hp(); j++) {
                 Color pip = j < p.get_hp() ? GREEN : DARKGRAY;

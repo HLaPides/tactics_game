@@ -2,6 +2,7 @@
 #include "../core/game_state.h"
 #include "../combat/combat.h"
 #include "../core/types.h"
+#include "../units/enemy.h"
 #include "icon_registry.h"
 #include "raylib.h"
 #include <unordered_map>
@@ -49,5 +50,5 @@ private:
     static const int PORTRAIT_SIZE = 84;
     static const int PORTRAIT_X    = 8;
     static const int SPR_W         = 48;
-    static const int SPR_H         = 96;
+    static const int SPR_H         = 90;
 };
