@@ -1,9 +1,11 @@
 #include "renderer.h"
 #include "raylib.h"
 #include <algorithm>
+#include <numeric>
 #include <cmath>
 #include <cstdio>
 
+//assets hardcoded in for now, will have to fix later
 Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
     camera.rotation = 0.0f;
@@ -23,12 +25,17 @@ Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
            tileset.id, tileset.width, tileset.height);
 
     load_portraits();
+    load_sprites();
 }
 
 Renderer::~Renderer() {
     if (hud_texture.id != 0) UnloadTexture(hud_texture);
     if (tileset.id != 0)     UnloadTexture(tileset);
     for (auto& [name, tex] : portraits)
+        if (tex.id != 0) UnloadTexture(tex);
+    for (auto& [name, tex] : unit_sprites)
+        if (tex.id != 0) UnloadTexture(tex);
+    for (auto& [name, tex] : enemy_sprites)
         if (tex.id != 0) UnloadTexture(tex);
 }
 
@@ -43,10 +50,28 @@ void Renderer::load_portraits() {
     load("Medic",        "src/assets/portraits/pirate_04.png");
 }
 
+void Renderer::load_sprites() {
+    auto load = [&](std::unordered_map<std::string, Texture2D>& map,
+                    const std::string& key, const std::string& path) {
+        Texture2D tex = LoadTexture(path.c_str());
+        if (tex.id != 0) map[key] = tex;
+        printf("[RENDERER] sprite '%s' id=%d\n", key.c_str(), tex.id);
+    };
+
+    load(unit_sprites,  "Bosun",        "src/assets/sprites/bosun_sprite.png");
+    load(unit_sprites,  "Sharpshooter", "src/assets/sprites/sharpshooter_sprite.png");
+    load(unit_sprites,  "Medic",        "src/assets/sprites/medic_sprite.png");
+    load(unit_sprites,  "Swashbuckler", "src/assets/sprites/swashbuckler_sprite.png");
+
+    load(enemy_sprites, "E", "src/assets/sprites/soldier.png");
+    load(enemy_sprites, "G", "src/assets/sprites/guard.png");
+    load(enemy_sprites, "C", "src/assets/sprites/capt_vane.png");
+}
+
 void Renderer::draw_tile(int tile_id, int x, int y) {
     if (tile_id <= 0 || tileset.id == 0) return;
-    int idx   = tile_id - 1;          // 1-based → 0-based
-    int src_x = idx * 32;             // horizontal strip, 32px per tile
+    int idx   = tile_id - 1;
+    int src_x = idx * 32;
     DrawTexturePro(tileset,
         { (float)src_x, 0, 32, 32 },
         { (float)x, (float)y, (float)config.tile_size, (float)config.tile_size },
@@ -135,7 +160,6 @@ void Renderer::draw_map(const GameState& state) {
             if (tileset.id != 0 && t.tile_id > 0) {
                 draw_tile(t.tile_id, x, y);
             } else {
-                // fallback colored rectangles
                 switch (t.type) {
                     case TILE_WALL:
                         DrawRectangle(x, y, tile_size, tile_size, GRAY); break;
@@ -259,46 +283,97 @@ void Renderer::draw_target_highlights(const GameState& state) {
 void Renderer::draw_units(const GameState& state) {
     int tile_size = config.tile_size;
 
+    // collect all draw calls and sort south to north so southern units draw on top
+    struct DrawCall { int row; bool is_player; int index; };
+    std::vector<DrawCall> calls;
+
     for (int i = 0; i < (int)state.enemies.size(); i++) {
         if (!state.enemies[i].is_alive()) continue;
         if (!state.spotted[i]) continue;
-
-        const enemy& e = state.enemies[i];
-        int x = e.get_x_pos() * tile_size;
-        int y = e.get_y_pos() * tile_size;
-        DrawRectangle(x, y, tile_size, tile_size, BLUE);
-
-        if (i == state.target_index && state.mode != ActionMode::HEAL)
-            DrawRectangleLines(x - 2, y - 2, tile_size + 4, tile_size + 4, YELLOW);
-
-        for (int j = 0; j < e.get_max_hp(); j++) {
-            Color pip = j < e.get_hp() ? GREEN : DARKGRAY;
-            DrawRectangle(x + 4 + j * 10, y - 10, 8, 6, pip);
-        }
+        calls.push_back({state.enemies[i].get_y_pos(), false, i});
     }
-
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (!state.players[i].is_alive()) continue;
-        const unit& p           = state.players[i];
-        int         x           = p.get_x_pos() * tile_size;
-        int         y           = p.get_y_pos() * tile_size;
-        bool        is_selected = (i == state.selected_player);
+        calls.push_back({state.players[i].get_y_pos(), true, i});
+    }
+    std::sort(calls.begin(), calls.end(), [](const DrawCall& a, const DrawCall& b) {
+        return a.row < b.row;
+    });
 
-        Color unit_color = is_selected ? RED : Color{150, 30, 30, 255};
-        DrawRectangle(x, y, tile_size, tile_size, unit_color);
+    for (auto& call : calls) {
+        if (!call.is_player) {
+            const enemy& e = state.enemies[call.index];
+            int tx = e.get_x_pos() * tile_size;
+            int ty = e.get_y_pos() * tile_size;
 
-        if (is_selected)
-            DrawRectangleLines(x, y, tile_size, tile_size, WHITE);
+            // determine enemy type by max_hp
+            std::string ekey = "E";
+            int hp = e.get_max_hp();
+            if (hp >= 10)     ekey = "C";
+            else if (hp >= 5) ekey = "G";
 
-        if (state.mode == ActionMode::HEAL && i == state.target_index)
-            DrawRectangleLines(x - 2, y - 2, tile_size + 4, tile_size + 4, GREEN);
+            auto it = enemy_sprites.find(ekey);
+            if (it != enemy_sprites.end() && it->second.id != 0) {
+                int dx = tx - (SPR_W - tile_size) / 2;
+                int dy = ty - (SPR_H - tile_size);
+                DrawTexturePro(it->second,
+                    { 0, 0, (float)SPR_W, (float)SPR_H },
+                    { (float)dx, (float)dy, (float)SPR_W, (float)SPR_H },
+                    { 0, 0 }, 0.0f, WHITE);
+            } else {
+                DrawRectangle(tx, ty, tile_size, tile_size, BLUE);
+            }
 
-        if (p.is_on_overwatch())
-            DrawText("OW", x + 8, y + 8, 12, SKYBLUE);
+            if (call.index == state.target_index && state.mode != ActionMode::HEAL)
+                DrawRectangleLines(tx - 2, ty - 2, tile_size + 4, tile_size + 4, YELLOW);
 
-        for (int j = 0; j < p.get_max_hp(); j++) {
-            Color pip = j < p.get_hp() ? GREEN : DARKGRAY;
-            DrawRectangle(x + 4 + j * 10, y - 10, 8, 6, pip);
+            // HP pips above sprite
+            int pip_y = ty - (SPR_H - tile_size) - 8;
+            for (int j = 0; j < e.get_max_hp(); j++) {
+                Color pip = j < e.get_hp() ? GREEN : DARKGRAY;
+                DrawRectangle(tx + 2 + j * 5, pip_y, 4, 4, pip);
+            }
+
+        } else {
+            const unit& p    = state.players[call.index];
+            int tx = p.get_x_pos() * tile_size;
+            int ty = p.get_y_pos() * tile_size;
+            bool is_selected = (call.index == state.selected_player);
+
+            const std::string& pname = call.index < (int)state.player_names.size()
+                                     ? state.player_names[call.index] : "";
+            auto it = unit_sprites.find(pname);
+
+            if (it != unit_sprites.end() && it->second.id != 0) {
+                int dx = tx - (SPR_W - tile_size) / 2;
+                int dy = ty - (SPR_H - tile_size);
+                // dim unselected units slightly
+                Color tint = is_selected ? WHITE : Color{200, 200, 200, 255};
+                DrawTexturePro(it->second,
+                    { 0, 0, (float)SPR_W, (float)SPR_H },
+                    { (float)dx, (float)dy, (float)SPR_W, (float)SPR_H },
+                    { 0, 0 }, 0.0f, tint);
+            } else {
+                DrawRectangle(tx, ty, tile_size, tile_size,
+                              is_selected ? RED : Color{150, 30, 30, 255});
+            }
+
+            // selection ring at tile level
+            if (is_selected)
+                DrawRectangleLines(tx - 1, ty - 1, tile_size + 2, tile_size + 2, WHITE);
+
+            if (state.mode == ActionMode::HEAL && call.index == state.target_index)
+                DrawRectangleLines(tx - 2, ty - 2, tile_size + 4, tile_size + 4, GREEN);
+
+            if (p.is_on_overwatch())
+                DrawText("OW", tx + 2, ty + 2, 11, SKYBLUE);
+
+            // HP pips above sprite
+            int pip_y = ty - (SPR_H - tile_size) - 8;
+            for (int j = 0; j < p.get_max_hp(); j++) {
+                Color pip = j < p.get_hp() ? GREEN : DARKGRAY;
+                DrawRectangle(tx + 2 + j * 5, pip_y, 4, 4, pip);
+            }
         }
     }
 }
@@ -460,11 +535,11 @@ void Renderer::draw_hud(const GameState& state) {
         DrawRectangleLines(bx, by, BTN_W, BTN_H, border);
 
         if (icons.has(ab.get_id())) {
-            Texture2D tex      = icons.get(ab.get_id());
+            Texture2D tex       = icons.get(ab.get_id());
             int       icon_size = 56;
-            int       icon_x   = bx + BTN_W / 2 - icon_size / 2;
-            int       icon_y   = by + 2;
-            Color     tint     = unavailable ? Color{120, 120, 120, 180} : WHITE;
+            int       icon_x    = bx + BTN_W / 2 - icon_size / 2;
+            int       icon_y    = by + 2;
+            Color     tint      = unavailable ? Color{120, 120, 120, 180} : WHITE;
             DrawTexturePro(tex,
                 { 0, 0, (float)tex.width, (float)tex.height },
                 { (float)icon_x, (float)icon_y, (float)icon_size, (float)icon_size },
