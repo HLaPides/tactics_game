@@ -8,12 +8,24 @@
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
-static const int VANE_LAIR_COL = 53;  // Vane holds position east of this column
+static const int VANE_LAIR_COL = 53;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+static std::vector<std::pair<int,int>> build_blocked(
+    const enemy& self, const std::vector<enemy>& enemies, const unit& player) {
+    std::vector<std::pair<int,int>> blocked;
+    for (auto& other : enemies) {
+        if (!other.is_alive() || &other == &self) continue;
+        blocked.push_back({other.get_x_pos(), other.get_y_pos()});
+    }
+    blocked.push_back({player.get_x_pos(), player.get_y_pos()});
+    return blocked;
+}
+
 bool AIController::tile_occupied(int x, int y, const unit& player,
-                                  const std::vector<enemy>& enemies, const enemy& self) const {
+                                  const std::vector<enemy>& enemies,
+                                  const enemy& self) const {
     if (player.get_x_pos() == x && player.get_y_pos() == y) return true;
     for (auto& e : enemies) {
         if (!e.is_alive()) continue;
@@ -74,35 +86,24 @@ std::pair<float,float> AIController::average_attack_vector(
 
 // ─── BFS full movement ───────────────────────────────────────────────────────
 
-// moves enemy as far as possible toward (tx, ty) using full movement allowance
 void AIController::move_toward_full(enemy& e, int tx, int ty,
-                                     std::vector<enemy>& enemies, unit& player,
+                                     const std::vector<std::pair<int,int>>& blocked,
                                      const GameMap& game_map) {
-    int mx = e.get_x_pos();
-    int my = e.get_y_pos();
+    int mx       = e.get_x_pos();
+    int my       = e.get_y_pos();
     int movement = e.get_movement();
 
-    // BFS to find all reachable tiles within movement range
-    std::vector<std::pair<int,int>> blocked;
-    for (auto& other : enemies) {
-        if (!other.is_alive() || &other == &e) continue;
-        blocked.push_back({other.get_x_pos(), other.get_y_pos()});
-    }
-    blocked.push_back({player.get_x_pos(), player.get_y_pos()});
-
     auto reachable = get_reachable_tiles(mx, my, movement, game_map, blocked);
+    if (reachable.empty()) { e.use_action(); return; }
 
-    if (reachable.empty()) return;
-
-    // find the reachable tile closest to target
-    std::pair<int,int> best = {mx, my};
-    int best_dist = std::max(abs(mx - tx), abs(my - ty));
+    std::pair<int,int> best     = {mx, my};
+    int                best_dist = std::max(abs(mx - tx), abs(my - ty));
 
     for (auto& [col, row] : reachable) {
         int dist = std::max(abs(col - tx), abs(row - ty));
         if (dist < best_dist) {
             best_dist = dist;
-            best = {col, row};
+            best      = {col, row};
         }
     }
 
@@ -116,14 +117,8 @@ void AIController::move_toward_full(enemy& e, int tx, int ty,
 
 std::optional<std::pair<int,int>> AIController::find_cover_tile(
     const enemy& e, const unit& player,
-    std::vector<enemy>& enemies, const GameMap& game_map) const {
-
-    std::vector<std::pair<int,int>> blocked;
-    for (auto& other : enemies) {
-        if (!other.is_alive() || &other == &e) continue;
-        blocked.push_back({other.get_x_pos(), other.get_y_pos()});
-    }
-    blocked.push_back({player.get_x_pos(), player.get_y_pos()});
+    const std::vector<std::pair<int,int>>& blocked,
+    const GameMap& game_map) const {
 
     auto reachable = get_reachable_tiles(
         e.get_x_pos(), e.get_y_pos(), e.get_movement(), game_map, blocked);
@@ -136,7 +131,6 @@ std::optional<std::pair<int,int>> AIController::find_cover_tile(
 
     for (auto& [col, row] : reachable) {
         if (!in_cover_from(col, row, px, py, game_map)) continue;
-
         int dist = std::max(abs(col - px), abs(row - py));
         if (dist > e.get_sight_range()) continue;
         if (!has_los(col, row, px, py, game_map)) continue;
@@ -144,7 +138,7 @@ std::optional<std::pair<int,int>> AIController::find_cover_tile(
         int move_dist = std::max(abs(col - e.get_x_pos()), abs(row - e.get_y_pos()));
         if (move_dist < best_dist) {
             best_dist = move_dist;
-            best = {col, row};
+            best      = {col, row};
         }
     }
     return best;
@@ -152,14 +146,8 @@ std::optional<std::pair<int,int>> AIController::find_cover_tile(
 
 std::optional<std::pair<int,int>> AIController::find_shooting_position(
     const enemy& e, const unit& player,
-    std::vector<enemy>& enemies, const GameMap& game_map) const {
-
-    std::vector<std::pair<int,int>> blocked;
-    for (auto& other : enemies) {
-        if (!other.is_alive() || &other == &e) continue;
-        blocked.push_back({other.get_x_pos(), other.get_y_pos()});
-    }
-    blocked.push_back({player.get_x_pos(), player.get_y_pos()});
+    const std::vector<std::pair<int,int>>& blocked,
+    const GameMap& game_map) const {
 
     auto reachable = get_reachable_tiles(
         e.get_x_pos(), e.get_y_pos(), e.get_movement(), game_map, blocked);
@@ -186,7 +174,7 @@ std::optional<std::pair<int,int>> AIController::find_shooting_position(
 
         if (score > best_score) {
             best_score = score;
-            best = {col, row};
+            best       = {col, row};
         }
     }
     return best;
@@ -194,14 +182,9 @@ std::optional<std::pair<int,int>> AIController::find_shooting_position(
 
 std::optional<std::pair<int,int>> AIController::find_flank_tile(
     const enemy& e, const unit& player,
-    const std::vector<enemy>& enemies, const GameMap& game_map) const {
-
-    std::vector<std::pair<int,int>> blocked;
-    for (auto& other : enemies) {
-        if (!other.is_alive() || &other == &e) continue;
-        blocked.push_back({other.get_x_pos(), other.get_y_pos()});
-    }
-    blocked.push_back({player.get_x_pos(), player.get_y_pos()});
+    const std::vector<enemy>& enemies,
+    const std::vector<std::pair<int,int>>& blocked,
+    const GameMap& game_map) const {
 
     auto reachable = get_reachable_tiles(
         e.get_x_pos(), e.get_y_pos(), e.get_movement(), game_map, blocked);
@@ -220,8 +203,8 @@ std::optional<std::pair<int,int>> AIController::find_flank_tile(
         if (dist > e.get_sight_range()) continue;
         if (!has_los(col, row, px, py, game_map)) continue;
 
-        float vx = col - px;
-        float vy = row - py;
+        float vx   = col - px;
+        float vy   = row - py;
         float vlen = std::sqrt(vx * vx + vy * vy);
         if (vlen < 0.001f) continue;
 
@@ -232,7 +215,7 @@ std::optional<std::pair<int,int>> AIController::find_flank_tile(
         float score = -dot;
         if (score > best_score) {
             best_score = score;
-            best = {col, row};
+            best       = {col, row};
         }
     }
     return best;
@@ -276,58 +259,56 @@ bool AIController::try_melee(enemy& e, unit& player,
 
 void AIController::act_soldier(enemy& e, unit& player, std::vector<enemy>& enemies,
                                 const GameMap& game_map, FloatingTextManager& texts) {
-    // priority 1: if hurt, find cover with LOS
+    auto blocked = build_blocked(e, enemies, player);
+
     if (is_hurt(e) && !in_cover_from(e.get_x_pos(), e.get_y_pos(),
                                       player.get_x_pos(), player.get_y_pos(), game_map)) {
-        auto cover = find_cover_tile(e, player, enemies, game_map);
+        auto cover = find_cover_tile(e, player, blocked, game_map);
         if (cover) {
-            move_toward_full(e, cover->first, cover->second, enemies, player, game_map);
+            move_toward_full(e, cover->first, cover->second, blocked, game_map);
             return;
         }
     }
 
-    // priority 2: shoot if LOS
     if (try_attack(e, player, game_map, texts)) return;
 
-    // priority 3: move to covered shooting position
-    auto shoot_pos = find_shooting_position(e, player, enemies, game_map);
+    auto shoot_pos = find_shooting_position(e, player, blocked, game_map);
     if (shoot_pos) {
-        move_toward_full(e, shoot_pos->first, shoot_pos->second, enemies, player, game_map);
+        move_toward_full(e, shoot_pos->first, shoot_pos->second, blocked, game_map);
         return;
     }
 
-    // priority 4: flank
-    auto flank = find_flank_tile(e, player, enemies, game_map);
+    auto flank = find_flank_tile(e, player, enemies, blocked, game_map);
     if (flank) {
-        move_toward_full(e, flank->first, flank->second, enemies, player, game_map);
+        move_toward_full(e, flank->first, flank->second, blocked, game_map);
         return;
     }
 
-    // fallback: move toward player using full movement
-    move_toward_full(e, player.get_x_pos(), player.get_y_pos(), enemies, player, game_map);
+    move_toward_full(e, player.get_x_pos(), player.get_y_pos(), blocked, game_map);
 }
 
 void AIController::act_guard(enemy& e, unit& player, std::vector<enemy>& enemies,
                               const GameMap& game_map, FloatingTextManager& texts) {
-    // priority 1: if hurt, find cover
+    auto blocked = build_blocked(e, enemies, player);
+
     if (is_hurt(e) && !in_cover_from(e.get_x_pos(), e.get_y_pos(),
                                       player.get_x_pos(), player.get_y_pos(), game_map)) {
-        auto cover = find_cover_tile(e, player, enemies, game_map);
+        auto cover = find_cover_tile(e, player, blocked, game_map);
         if (cover) {
-            move_toward_full(e, cover->first, cover->second, enemies, player, game_map);
+            move_toward_full(e, cover->first, cover->second, blocked, game_map);
             return;
         }
     }
 
-    // priority 2: melee if adjacent
     if (try_melee(e, player, game_map, texts)) return;
 
-    // priority 3: close distance aggressively using full movement
-    move_toward_full(e, player.get_x_pos(), player.get_y_pos(), enemies, player, game_map);
+    move_toward_full(e, player.get_x_pos(), player.get_y_pos(), blocked, game_map);
 }
 
 void AIController::act_captain(enemy& e, unit& player, std::vector<enemy>& enemies,
                                 const GameMap& game_map, FloatingTextManager& texts) {
+    auto blocked = build_blocked(e, enemies, player);
+
     int px = player.get_x_pos();
     int py = player.get_y_pos();
 
@@ -335,37 +316,28 @@ void AIController::act_captain(enemy& e, unit& player, std::vector<enemy>& enemi
     bool player_adjacent = std::max(abs(e.get_x_pos() - px),
                                      abs(e.get_y_pos() - py)) <= 1;
 
-    // always try to shoot first — Vane is a marksman
     if (try_attack(e, player, game_map, texts)) return;
 
     if (!player_in_lair) {
-        // player hasn't breached — hold position completely
-        // only reposition within lair if can't shoot
-        auto shoot_pos = find_shooting_position(e, player, enemies, game_map);
+        auto shoot_pos = find_shooting_position(e, player, blocked, game_map);
         if (shoot_pos && shoot_pos->first >= VANE_LAIR_COL) {
-            move_toward_full(e, shoot_pos->first, shoot_pos->second,
-                             enemies, player, game_map);
+            move_toward_full(e, shoot_pos->first, shoot_pos->second, blocked, game_map);
             return;
         }
-        // can't improve position — hold
         e.use_action();
         return;
     }
 
-    // player breached the lair — Vane fights back
     if (player_adjacent) {
         if (try_melee(e, player, game_map, texts)) return;
     }
 
-    // find covered shooting position within lair
-    auto shoot_pos = find_shooting_position(e, player, enemies, game_map);
+    auto shoot_pos = find_shooting_position(e, player, blocked, game_map);
     if (shoot_pos && shoot_pos->first >= VANE_LAIR_COL) {
-        move_toward_full(e, shoot_pos->first, shoot_pos->second,
-                         enemies, player, game_map);
+        move_toward_full(e, shoot_pos->first, shoot_pos->second, blocked, game_map);
         return;
     }
 
-    // last resort — hold rather than leave
     e.use_action();
 }
 

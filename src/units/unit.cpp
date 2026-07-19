@@ -14,7 +14,6 @@ unit::unit(int x_pos, int y_pos, UnitStats s) {
     shoot_damage      = s.shoot_damage;
     melee_damage      = s.melee_damage;
     sight_range       = s.sight_range;
-    on_overwatch      = false;
     aim_penalty       = 0;
     aim_penalty_turns = 0;
 }
@@ -33,7 +32,6 @@ int  unit::get_melee_damage() const { return melee_damage; }
 int  unit::get_sight_range()  const { return sight_range; }
 int  unit::get_aim_penalty()  const { return aim_penalty; }
 bool unit::is_alive()         const { return hp > 0; }
-bool unit::is_on_overwatch()  const { return on_overwatch; }
 
 void unit::use_action() {
     if (actions_remaining > 0) actions_remaining--;
@@ -45,7 +43,6 @@ void unit::use_actions(int count) {
 
 void unit::reset_actions() {
     actions_remaining = MAX_ACTIONS;
-    on_overwatch      = false;
 }
 
 void unit::take_damage(int amount) {
@@ -59,14 +56,6 @@ void unit::heal(int amount) {
 void unit::set_position(int x, int y) {
     x_position = x;
     y_position = y;
-}
-
-void unit::set_overwatch(bool val) {
-    on_overwatch = val;
-}
-
-void unit::clear_overwatch() {
-    on_overwatch = false;
 }
 
 void unit::apply_aim_penalty(int amount, int turns) {

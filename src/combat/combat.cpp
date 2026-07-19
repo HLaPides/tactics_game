@@ -80,7 +80,6 @@ static bool has_los_ray(float x0, float y0, float x1, float y1,
             return false;
         Tile t = game_map.get_tile(tx, ty);
         if (t.type == TILE_WALL) {
-            printf("[RAY] blocked at col=%d row=%d tile_id=%d\n", tx, ty, t.tile_id);
             return false;
         }
     }
@@ -108,7 +107,7 @@ bool has_los(int x0, int y0, int x1, int y1, const GameMap& game_map) {
 
 // ─── cover ───────────────────────────────────────────────────────────────────
 
-CoverResult get_cover(unit& attacker, unit& target, const GameMap& game_map) {
+CoverResult get_cover(const unit& attacker, const unit& target, const GameMap& game_map) {
     int tx = target.get_x_pos();
     int ty = target.get_y_pos();
     int ax = attacker.get_x_pos();
@@ -157,15 +156,6 @@ CoverResult get_cover(unit& attacker, unit& target, const GameMap& game_map) {
             flanked = true;
         }
     }
-    printf("[COVER] north tile_id=%d cover=%d faces.south=%d ay=%d ty=%d\n",
-           north.tile_id, north.cover, north.faces.south, ay, ty);
-    printf("[COVER] south tile_id=%d cover=%d faces.north=%d\n",
-           south.tile_id, south.cover, south.faces.north);
-    printf("[COVER] west tile_id=%d cover=%d faces.east=%d\n",
-           west.tile_id, west.cover, west.faces.east);
-    printf("[COVER] east tile_id=%d cover=%d faces.west=%d\n",
-           east.tile_id, east.cover, east.faces.west);
-
     if (flanked) best_penalty = 0;
     return { best_penalty, flanked };
 }

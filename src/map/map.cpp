@@ -114,7 +114,6 @@ std::string GameMap::read_file(const std::string& path) {
     ss << f.rdbuf();
     std::string content = ss.str();
     content.erase(std::remove(content.begin(), content.end(), '\r'), content.end());
-    printf("[MAP] read_file: %s (%d bytes)\n", path.c_str(), (int)content.size());
     return content;
 }
 
@@ -135,7 +134,8 @@ int GameMap::json_int(const std::string& src, const std::string& key, int def) {
     catch (...) { return def; }
 }
 
-std::string GameMap::json_string(const std::string& src, const std::string& key, const std::string& def) {
+std::string GameMap::json_string(const std::string& src, const std::string& key,
+                                  const std::string& def) {
     std::string search = "\"" + key + "\":";
     size_t pos = src.find(search);
     if (pos == std::string::npos) {
@@ -160,10 +160,7 @@ std::vector<int> GameMap::json_int_array(const std::string& src, const std::stri
     if (pos == std::string::npos) {
         search = "\"" + key + "\": ";
         pos = src.find(search);
-        if (pos == std::string::npos) {
-            printf("[MAP] json_int_array: key '%s' not found\n", key.c_str());
-            return result;
-        }
+        if (pos == std::string::npos) return result;
     }
     pos = src.find('[', pos);
     if (pos == std::string::npos) return result;
@@ -179,16 +176,13 @@ std::vector<int> GameMap::json_int_array(const std::string& src, const std::stri
                     [](unsigned char c){ return std::isspace(c); }), token.end());
         if (!token.empty()) {
             try { result.push_back(std::stoi(token)); }
-            catch (...) { printf("[MAP] json_int_array: failed token '%s'\n", token.c_str()); }
+            catch (...) {}
         }
     }
-    printf("[MAP] json_int_array: key '%s' -> %d elements\n", key.c_str(), (int)result.size());
     return result;
 }
 
 bool GameMap::load(const std::string& filepath) {
-    printf("[MAP] load: %s\n", filepath.c_str());
-
     std::string src = read_file(filepath);
     if (src.empty()) {
         printf("[MAP] ERROR: file empty or not found\n");
@@ -203,13 +197,11 @@ bool GameMap::load(const std::string& filepath) {
     std::string footer = src.substr(std::max(0, (int)src.size() - 500));
     int map_h = json_int(header, "height", 0);
     int map_w = json_int(footer, "width",  0);
-    printf("[MAP] dimensions: %d x %d\n", map_w, map_h);
     if (map_w <= 0 || map_h <= 0) {
         printf("[MAP] ERROR: invalid dimensions\n");
         return false;
     }
 
-    // tile layer
     size_t layer_pos = src.find("\"tilelayer\"");
     if (layer_pos == std::string::npos) {
         printf("[MAP] ERROR: no tilelayer found\n");
@@ -221,11 +213,9 @@ bool GameMap::load(const std::string& filepath) {
         printf("[MAP] ERROR: could not find layer object start\n");
         return false;
     }
-    printf("[MAP] tilelayer object starts at pos %d\n", (int)layer_obj_start);
 
     std::string tile_section = src.substr(layer_obj_start);
     std::vector<int> data = json_int_array(tile_section, "data");
-    printf("[MAP] tile data: %d elements, expected %d\n", (int)data.size(), map_w * map_h);
     if ((int)data.size() != map_w * map_h) {
         printf("[MAP] ERROR: tile data size mismatch\n");
         return false;
@@ -238,23 +228,12 @@ bool GameMap::load(const std::string& filepath) {
 
     rows = map_h;
     cols = map_w;
-    printf("[MAP] tile grid built: %d rows x %d cols\n", rows, cols);
 
-    // object layer
     size_t obj_pos = src.find("\"objectgroup\"");
-    if (obj_pos == std::string::npos) {
-        printf("[MAP] WARNING: no objectgroup found\n");
-        return true;
-    }
-    printf("[MAP] objectgroup found at pos %d\n", (int)obj_pos);
+    if (obj_pos == std::string::npos) return true;
 
-    // "objects" appears BEFORE "objectgroup" in Tiled TMJ — search backwards
     size_t objs_key = src.rfind("\"objects\"", obj_pos);
-    if (objs_key == std::string::npos) {
-        printf("[MAP] WARNING: no objects key found\n");
-        return true;
-    }
-    printf("[MAP] objects key at pos %d\n", (int)objs_key);
+    if (objs_key == std::string::npos) return true;
 
     size_t arr_start = src.find('[', objs_key);
     if (arr_start == std::string::npos) return true;
@@ -268,7 +247,6 @@ bool GameMap::load(const std::string& filepath) {
     }
 
     std::string objects_str = src.substr(arr_start, arr_end - arr_start);
-    printf("[MAP] objects array: %d chars\n", (int)objects_str.size());
 
     int obj_count = 0;
     size_t search_pos = 0;
@@ -290,55 +268,36 @@ bool GameMap::load(const std::string& filepath) {
         int x_raw = json_int(obj_str, "x", -1);
         int y_raw = json_int(obj_str, "y", -1);
 
-        printf("[MAP] object[%d]: name='%s' x=%d y=%d\n",
-               obj_count, obj_name.c_str(), x_raw, y_raw);
-
-        if (x_raw < 0 || y_raw < 0) {
-            printf("[MAP]   skipped (invalid coords)\n");
-            obj_count++;
-            continue;
-        }
+        if (x_raw < 0 || y_raw < 0) { obj_count++; continue; }
 
         int col = x_raw / tile_size;
         int row = y_raw / tile_size;
         col = std::max(0, std::min(col, map_w - 1));
         row = std::max(0, std::min(row, map_h - 1));
 
-        printf("[MAP]   tile coord: col=%d row=%d\n", col, row);
-
         if (obj_name == "player_spawn") {
             int slot = 1;
-            // find "slot" key then read "value" after it
             size_t slot_pos = obj_str.find("\"slot\"");
             if (slot_pos != std::string::npos) {
                 std::string slot_section = obj_str.substr(slot_pos);
                 slot = json_int(slot_section, "value", 1);
             }
             char type_char = '0' + slot;
-            printf("[MAP]   player spawn slot=%d char='%c'\n", slot, type_char);
             player_spawns.push_back({col, row, type_char});
         }
         else if (obj_name == "soldier_spawn") {
-            printf("[MAP]   enemy spawn: soldier\n");
             enemy_spawns.push_back({col, row, 'E'});
         }
         else if (obj_name == "guard_spawn") {
-            printf("[MAP]   enemy spawn: guard\n");
             enemy_spawns.push_back({col, row, 'G'});
         }
         else if (obj_name == "captain_spawn") {
-            printf("[MAP]   enemy spawn: captain\n");
             enemy_spawns.push_back({col, row, 'C'});
-        }
-        else {
-            printf("[MAP]   unknown object '%s' — skipped\n", obj_name.c_str());
         }
 
         obj_count++;
     }
 
-    printf("[MAP] done: %d player spawns, %d enemy spawns\n",
-           (int)player_spawns.size(), (int)enemy_spawns.size());
     return true;
 }
 

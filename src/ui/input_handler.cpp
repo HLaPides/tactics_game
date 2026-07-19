@@ -77,10 +77,8 @@ std::vector<int> InputHandler::get_valid_targets(const GameState& state) const {
         int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
                             abs(e.get_y_pos() - active.get_y_pos()));
 
-        printf("[TARGET] enemy %d at %d,%d\n", i, e.get_x_pos(), e.get_y_pos());
         bool los = has_los(active.get_x_pos(), active.get_y_pos(),
                         e.get_x_pos(), e.get_y_pos(), state.map);
-        printf("[TARGET] LOS to enemy %d = %d\n", i, los);
 
         bool valid = false;
         if (state.mode == ActionMode::SHOOT      ||

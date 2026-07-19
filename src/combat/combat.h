@@ -35,6 +35,6 @@ std::vector<std::pair<int,int>> get_reachable_tiles(
     const std::vector<std::pair<int,int>>& blocked);
 
 bool         has_los(int x0, int y0, int x1, int y1, const GameMap& game_map);
-CoverResult  get_cover(unit& attacker, unit& target, const GameMap& game_map);
+CoverResult get_cover(const unit& attacker, const unit& target, const GameMap& game_map);
 AttackResult calculate_odds(unit& attacker, unit& target, const GameMap& game_map, int base_damage);
 AttackResult resolve_attack(unit& attacker, unit& target, const GameMap& game_map, int base_damage);

@@ -39,14 +39,11 @@ Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     icons.load("shoot",       "src/assets/icons/shoot.png");
     icons.load("melee",       "src/assets/icons/melee.png");
     icons.load("aimed_shot",  "src/assets/icons/aimed_shot.png");
-    icons.load("overwatch",   "src/assets/icons/overwatch.png");
     icons.load("rush",        "src/assets/icons/rush.png");
     icons.load("heal",        "src/assets/icons/heal.png");
     icons.load("dirty_trick", "src/assets/icons/dirty_trick.png");
 
     tileset = LoadTexture("levels/tileset_03.png");
-    printf("[RENDERER] tileset id=%d w=%d h=%d\n",
-           tileset.id, tileset.width, tileset.height);
 
     load_portraits();
     load_sprites();
@@ -79,7 +76,6 @@ void Renderer::load_sprites() {
                     const std::string& key, const std::string& path) {
         Texture2D tex = LoadTexture(path.c_str());
         if (tex.id != 0) map[key] = tex;
-        printf("[RENDERER] sprite '%s' id=%d\n", key.c_str(), tex.id);
     };
     load(unit_sprites,  "Bosun",        "src/assets/sprites/bosun_sprite.png");
     load(unit_sprites,  "Sharpshooter", "src/assets/sprites/sharpshooter_sprite.png");
@@ -125,8 +121,6 @@ void Renderer::draw_portrait(const GameState& state, int bar_y) {
     DrawText(name, text_x, bar_y + 8, 22, Color{60, 35, 15, 255});
 
     const unit& active = state.players[state.selected_player];
-    if (active.is_on_overwatch())
-        DrawText("[OVERWATCH]", text_x, bar_y + 34, 13, SKYBLUE);
 }
 
 // ─── tooltip ──────────────────────────────────────────────────────────────────
@@ -311,10 +305,7 @@ void Renderer::draw_target_highlights(const GameState& state) {
             if (!has_los(active.get_x_pos(), active.get_y_pos(),
                          e.get_x_pos(), e.get_y_pos(), state.map)) continue;
 
-            CoverResult cover = get_cover(
-                const_cast<unit&>(active),
-                const_cast<enemy&>(state.enemies[i]),
-                state.map);
+            CoverResult cover = get_cover(active, state.enemies[i], state.map);
 
             Color highlight = cover.flanked ? Fade(GOLD, 0.5f) : Fade(RED, 0.4f);
             DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
@@ -341,10 +332,7 @@ void Renderer::draw_target_highlights(const GameState& state) {
             if (!has_los(active.get_x_pos(), active.get_y_pos(),
                          e.get_x_pos(), e.get_y_pos(), state.map)) continue;
 
-            CoverResult cover = get_cover(
-                const_cast<unit&>(active),
-                const_cast<enemy&>(state.enemies[i]),
-                state.map);
+            CoverResult cover = get_cover(active, state.enemies[i], state.map);
 
             Color highlight = cover.flanked ? Fade(GOLD, 0.5f) : Fade(PURPLE, 0.4f);
             DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
@@ -465,9 +453,6 @@ void Renderer::draw_units(const GameState& state) {
 
             if (state.mode == ActionMode::HEAL && call.index == state.target_index)
                 DrawRectangleLines(tx - 2, ty - 2, tile_size + 4, tile_size + 4, GREEN);
-
-            if (p.is_on_overwatch())
-                DrawText("OW", tx + 2, ty + 2, 11, SKYBLUE);
 
             int pip_y = ty - (SPR_H - tile_size) - 8;
             for (int j = 0; j < p.get_max_hp(); j++) {

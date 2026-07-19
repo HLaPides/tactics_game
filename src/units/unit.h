@@ -22,8 +22,6 @@ public:
     int  get_melee_damage() const;
     int  get_sight_range()  const;
     bool is_alive()         const;
-    bool is_on_overwatch()  const;
-    
 
     void use_action();
     void use_actions(int count);
@@ -31,8 +29,6 @@ public:
     void take_damage(int amount);
     void heal(int amount);
     void set_position(int x, int y);
-    void set_overwatch(bool val);
-    void clear_overwatch();
     void reset_hp();
 
     // aim penalty (dirty trick / debuffs)
@@ -61,7 +57,6 @@ private:
     int  shoot_damage;
     int  melee_damage;
     int  sight_range;
-    bool on_overwatch     = false;
     int  aim_penalty       = 0;
     int  aim_penalty_turns = 0;
     std::vector<Ability> abilities;
