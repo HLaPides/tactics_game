@@ -308,10 +308,17 @@ void Renderer::draw_target_highlights(const GameState& state) {
             if (!state.enemies[i].is_alive()) continue;
             if (!state.spotted[i]) continue;
             const auto& e = state.enemies[i];
-            if (has_los(active.get_x_pos(), active.get_y_pos(),
-                        e.get_x_pos(), e.get_y_pos(), state.map))
-                DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                              tile_size, tile_size, Fade(RED, 0.4f));
+            if (!has_los(active.get_x_pos(), active.get_y_pos(),
+                         e.get_x_pos(), e.get_y_pos(), state.map)) continue;
+
+            CoverResult cover = get_cover(
+                const_cast<unit&>(active),
+                const_cast<enemy&>(state.enemies[i]),
+                state.map);
+
+            Color highlight = cover.flanked ? Fade(GOLD, 0.5f) : Fade(RED, 0.4f);
+            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                          tile_size, tile_size, highlight);
         }
     }
 
@@ -331,10 +338,17 @@ void Renderer::draw_target_highlights(const GameState& state) {
             if (!state.enemies[i].is_alive()) continue;
             if (!state.spotted[i]) continue;
             const auto& e = state.enemies[i];
-            if (has_los(active.get_x_pos(), active.get_y_pos(),
-                        e.get_x_pos(), e.get_y_pos(), state.map))
-                DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                              tile_size, tile_size, Fade(PURPLE, 0.4f));
+            if (!has_los(active.get_x_pos(), active.get_y_pos(),
+                         e.get_x_pos(), e.get_y_pos(), state.map)) continue;
+
+            CoverResult cover = get_cover(
+                const_cast<unit&>(active),
+                const_cast<enemy&>(state.enemies[i]),
+                state.map);
+
+            Color highlight = cover.flanked ? Fade(GOLD, 0.5f) : Fade(PURPLE, 0.4f);
+            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                          tile_size, tile_size, highlight);
         }
     }
 
