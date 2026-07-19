@@ -21,8 +21,6 @@ static TooltipData get_tooltip(const std::string& id) {
                                       "It does the job." };
     if (id == "rush")        return { "Move without spending an action.",
                                       "The best offense is a good defense." };
-    if (id == "overwatch")   return { "Fire at enemies that enter LOS.",
-                                      "Patience is a virtue." };
     if (id == "dirty_trick") return { "Reduce target's aim by 30 for one turn.",
                                       "If it works it works." };
     if (id == "aimed_shot")  return { "2 actions; improved aim and damage.",
@@ -154,6 +152,46 @@ void Renderer::draw_tooltip(const std::string& ability_id, int bx, int by) const
     DrawText(tip.flavor,      px + 8, py + 30, 11, Color{140, 110, 70,  255});
 }
 
+// ─── objectives ───────────────────────────────────────────────────────────────
+
+void Renderer::draw_objectives(const GameState& state) const {
+    // check conditions
+    bool vane_dead = false;
+    for (auto& e : state.enemies)
+        if (e.get_type() == EnemyType::CAPTAIN && !e.is_alive())
+            vane_dead = true;
+
+    bool obj_held = false;
+    for (auto& p : state.players)
+        if (p.is_alive() && state.map.is_objective(p.get_x_pos(), p.get_y_pos()))
+            obj_held = true;
+
+    int panel_x = 8;
+    int panel_y = 8;
+    int panel_w = 200;
+    int panel_h = 68;
+
+    DrawRectangle(panel_x, panel_y, panel_w, panel_h,
+                  ColorFromNormalized({0.08f, 0.05f, 0.02f, 0.88f}));
+    DrawRectangleLines(panel_x, panel_y, panel_w, panel_h,
+                       Color{140, 110, 70, 255});
+
+    DrawText("Objectives", panel_x + 8, panel_y + 6, 13,
+             Color{200, 170, 100, 255});
+
+    // objective 1 — kill Vane
+    Color c1 = vane_dead ? Color{80, 180, 80, 255} : Color{180, 180, 180, 255};
+    const char* check1 = vane_dead ? "[x]" : "[ ]";
+    DrawText(check1,              panel_x + 8,  panel_y + 26, 12, c1);
+    DrawText("Kill Captain Vane", panel_x + 34, panel_y + 26, 12, c1);
+
+    // objective 2 — hold the quarters
+    Color c2 = obj_held ? Color{80, 180, 80, 255} : Color{180, 180, 180, 255};
+    const char* check2 = obj_held ? "[x]" : "[ ]";
+    DrawText(check2,                 panel_x + 8,  panel_y + 46, 12, c2);
+    DrawText("Secure the quarters", panel_x + 34, panel_y + 46, 12, c2);
+}
+
 // ─── camera ───────────────────────────────────────────────────────────────────
 
 void Renderer::update_camera(int player_x, int player_y, int map_w) {
@@ -182,6 +220,7 @@ void Renderer::draw_frame(const GameState& state) {
     EndMode2D();
 
     draw_attack_preview(state);
+    draw_objectives(state);
     draw_hud(state);
     draw_game_over(state);
 
@@ -265,16 +304,16 @@ void Renderer::draw_target_highlights(const GameState& state) {
     int         tile_size = config.tile_size;
 
     if (state.mode == ActionMode::SHOOT || state.mode == ActionMode::AIMED_SHOT) {
-    for (int i = 0; i < (int)state.enemies.size(); i++) {
-        if (!state.enemies[i].is_alive()) continue;
-        if (!state.spotted[i]) continue;
-        const auto& e = state.enemies[i];
-        if (has_los(active.get_x_pos(), active.get_y_pos(),
-                    e.get_x_pos(), e.get_y_pos(), state.map))
-            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                          tile_size, tile_size, Fade(RED, 0.4f));
+        for (int i = 0; i < (int)state.enemies.size(); i++) {
+            if (!state.enemies[i].is_alive()) continue;
+            if (!state.spotted[i]) continue;
+            const auto& e = state.enemies[i];
+            if (has_los(active.get_x_pos(), active.get_y_pos(),
+                        e.get_x_pos(), e.get_y_pos(), state.map))
+                DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                              tile_size, tile_size, Fade(RED, 0.4f));
+        }
     }
-}
 
     if (state.mode == ActionMode::MELEE) {
         for (const auto& e : state.enemies) {
@@ -288,16 +327,16 @@ void Renderer::draw_target_highlights(const GameState& state) {
     }
 
     if (state.mode == ActionMode::DIRTY_TRICK) {
-    for (int i = 0; i < (int)state.enemies.size(); i++) {
-        if (!state.enemies[i].is_alive()) continue;
-        if (!state.spotted[i]) continue;
-        const auto& e = state.enemies[i];
-        if (has_los(active.get_x_pos(), active.get_y_pos(),
-                    e.get_x_pos(), e.get_y_pos(), state.map))
-            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                          tile_size, tile_size, Fade(PURPLE, 0.4f));
+        for (int i = 0; i < (int)state.enemies.size(); i++) {
+            if (!state.enemies[i].is_alive()) continue;
+            if (!state.spotted[i]) continue;
+            const auto& e = state.enemies[i];
+            if (has_los(active.get_x_pos(), active.get_y_pos(),
+                        e.get_x_pos(), e.get_y_pos(), state.map))
+                DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                              tile_size, tile_size, Fade(PURPLE, 0.4f));
+        }
     }
-}
 
     if (state.mode == ActionMode::HEAL) {
         for (int i = 0; i < (int)state.players.size(); i++) {
@@ -682,6 +721,9 @@ void Renderer::draw_game_over(const GameState& state) {
         DrawText(title, cx - MeasureText(title, 48) / 2, cy - 130, 48, GOLD);
         const char* sub = "The gold and ship are yours.";
         DrawText(sub, cx - MeasureText(sub, 20) / 2, cy - 72, 20, LIGHTGRAY);
+        const char* demo = "Thanks for playing the demo.";
+        DrawText(demo, cx - MeasureText(demo, 16) / 2, cy - 44, 16,
+                 Color{160, 130, 60, 255});
     } else {
         const char* title = "MUTINY FAILED";
         DrawText(title, cx - MeasureText(title, 48) / 2, cy - 130, 48, RED);

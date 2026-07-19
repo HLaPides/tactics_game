@@ -41,6 +41,7 @@ private:
     void draw_hud(const GameState& state);
     void draw_game_over(const GameState& state);
     void draw_tooltip(const std::string& ability_id, int bx, int by) const;
+    void draw_objectives(const GameState& state) const;
 
     static const int BAR_HEIGHT    = 100;
     static const int BTN_W         = 90;

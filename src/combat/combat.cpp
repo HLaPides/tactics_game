@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
+#include <cmath>
 
 std::vector<std::pair<int,int>> get_reachable_tiles(
     int start_x, int start_y, int movement,
@@ -53,27 +54,59 @@ std::vector<std::pair<int,int>> get_reachable_tiles(
     return result;
 }
 
-bool has_los(int x0, int y0, int x1, int y1, const GameMap& game_map) {
-    int dx  =  abs(x1 - x0);
-    int dy  = -abs(y1 - y0);
-    int sx  = x0 < x1 ? 1 : -1;
-    int sy  = y0 < y1 ? 1 : -1;
-    int err = dx + dy;
-    int x   = x0;
-    int y   = y0;
+// ─── LOS ─────────────────────────────────────────────────────────────────────
 
-    while (true) {
-        if (x == x1 && y == y1) return true;
-        if (!(x == x0 && y == y0)) {
-            Tile t = game_map.get_tile(x, y);
-            // only TILE_WALL blocks LOS — half cover (TILE_BARREL) does not
-            if (t.type == TILE_WALL) return false;
+static bool has_los_ray(float x0, float y0, float x1, float y1,
+                         const GameMap& game_map) {
+    float dx  = x1 - x0;
+    float dy  = y1 - y0;
+    float len = std::sqrt(dx*dx + dy*dy);
+    if (len < 0.001f) return true;
+    dx /= len;
+    dy /= len;
+
+    float x     = x0;
+    float y     = y0;
+    int   steps = (int)(len * 2) + 1;
+
+    for (int i = 0; i < steps; i++) {
+        x += dx * 0.5f;
+        y += dy * 0.5f;
+        int tx = (int)x;
+        int ty = (int)y;
+        if (tx == (int)x1 && ty == (int)y1) return true;
+        if (tx < 0 || ty < 0 ||
+            tx >= game_map.getCols() || ty >= game_map.getRows())
+            return false;
+        Tile t = game_map.get_tile(tx, ty);
+        if (t.type == TILE_WALL) {
+            printf("[RAY] blocked at col=%d row=%d tile_id=%d\n", tx, ty, t.tile_id);
+            return false;
         }
-        int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x += sx; }
-        if (e2 <= dx) { err += dx; y += sy; }
     }
+    return true;
 }
+
+bool has_los(int x0, int y0, int x1, int y1, const GameMap& game_map) {
+    float cx0 = x0 + 0.5f, cy0 = y0 + 0.5f;
+    float cx1 = x1 + 0.5f, cy1 = y1 + 0.5f;
+
+    float dx  = cx1 - cx0;
+    float dy  = cy1 - cy0;
+    float len = std::sqrt(dx*dx + dy*dy);
+    float ox  = 0.0f, oy = 0.0f;
+
+    if (len > 0.001f) {
+        ox = -dy / len * 0.3f;
+        oy =  dx / len * 0.3f;
+    }
+
+    return has_los_ray(cx0 + ox, cy0 + oy, cx1 + ox, cy1 + oy, game_map)
+        || has_los_ray(cx0 - ox, cy0 - oy, cx1 - ox, cy1 - oy, game_map)
+        || has_los_ray(cx0,      cy0,      cx1,      cy1,      game_map);
+}
+
+// ─── cover ───────────────────────────────────────────────────────────────────
 
 CoverResult get_cover(unit& attacker, unit& target, const GameMap& game_map) {
     int tx = target.get_x_pos();
@@ -83,6 +116,7 @@ CoverResult get_cover(unit& attacker, unit& target, const GameMap& game_map) {
 
     int  best_penalty = 0;
     bool flanked      = false;
+    
 
     Tile north = game_map.get_tile(tx, ty - 1);
     if (north.cover != COVER_NONE && north.faces.south) {
@@ -123,27 +157,33 @@ CoverResult get_cover(unit& attacker, unit& target, const GameMap& game_map) {
             flanked = true;
         }
     }
+    printf("[COVER] north tile_id=%d cover=%d faces.south=%d ay=%d ty=%d\n",
+           north.tile_id, north.cover, north.faces.south, ay, ty);
+    printf("[COVER] south tile_id=%d cover=%d faces.north=%d\n",
+           south.tile_id, south.cover, south.faces.north);
+    printf("[COVER] west tile_id=%d cover=%d faces.east=%d\n",
+           west.tile_id, west.cover, west.faces.east);
+    printf("[COVER] east tile_id=%d cover=%d faces.west=%d\n",
+           east.tile_id, east.cover, east.faces.west);
 
     if (flanked) best_penalty = 0;
     return { best_penalty, flanked };
 }
 
+// ─── attack odds ─────────────────────────────────────────────────────────────
+
 AttackResult calculate_odds(unit& attacker, unit& target,
                              const GameMap& game_map, int base_damage) {
     AttackResult result = {};
 
-    int dist = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
-                        abs(attacker.get_y_pos() - target.get_y_pos()));
-
+    int dist      = std::max(abs(attacker.get_x_pos() - target.get_x_pos()),
+                             abs(attacker.get_y_pos() - target.get_y_pos()));
     int aim       = attacker.get_aim();
     int shoot_rng = attacker.get_shoot_range();
 
-    // range penalty based on shoot_range rather than sight_range
-    // within shoot_range: no range penalty
-    // beyond shoot_range: penalty scales with distance over range
     int range_penalty = 0;
     if (dist > shoot_rng) {
-        int over = dist - shoot_rng;
+        int over  = dist - shoot_rng;
         range_penalty = (over * over * 15) / std::max(aim, 1);
     }
     result.range_penalty = range_penalty;
@@ -171,6 +211,8 @@ AttackResult calculate_odds(unit& attacker, unit& target,
 
     return result;
 }
+
+// ─── resolve attack ───────────────────────────────────────────────────────────
 
 AttackResult resolve_attack(unit& attacker, unit& target,
                              const GameMap& game_map, int base_damage) {

@@ -20,7 +20,7 @@ Tile GameMap::tile_from_id(int id) const {
     t.is_objective = false;
 
     switch (id) {
-        case 0:  // empty
+        case 0:
         case 1:
         case 2:
         case 3:
@@ -31,7 +31,7 @@ Tile GameMap::tile_from_id(int id) const {
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 5:  // cannonball pile
+        case 5:  // cannonball
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;
@@ -43,57 +43,60 @@ Tile GameMap::tile_from_id(int id) const {
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 8:  // wall vertical
-        case 9:  // wall horizontal
-        case 10: // wall horizontal variant
+        case 8:   // wall vertical
+        case 9:   // wall horizontal
+        case 10:  // wall horizontal variant
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 11: // objective
+        case 11:  // objective
             t.type = TILE_OBJECTIVE; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             t.is_objective = true;
             break;
-        case 12: // railing wood — half cover
+        case 12:  // railing wood — half cover
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 13: // railing water — impassable
+        case 13:  // railing water — impassable
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 14: // grate variants — passable floor
+        case 14:  // grate variants
         case 15:
         case 16:
         case 17:
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;
-        case 18: // cannon variants — impassable
+        case 18:  // cannon variants
         case 19:
         case 20:
         case 21:
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 22: // crate
-        case 23: // barrel
-        case 24: // treasure chest
-        case 25: // map_01
-        case 26: // map_02
+        case 22:  // crate
+        case 23:  // barrel
+        case 24:  // treasure chest
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 27: // bed_01
-        case 28: // bed_02
-            t.type = TILE_WALL; t.cover = COVER_FULL;
-            t.faces = {true,true,true,true}; t.walkable = false;
-            break;
-        case 29: // globe
+        case 25:  // map_01
+        case 26:  // map_02
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        default: // 30 = empty
+        case 27:  // bed_01
+        case 28:  // bed_02
+            t.type = TILE_BARREL; t.cover = COVER_HALF;
+            t.faces = {false,false,false,false}; t.walkable = false;
+            break;
+        case 29:  // globe
+            t.type = TILE_BARREL; t.cover = COVER_HALF;
+            t.faces = {true,true,true,true}; t.walkable = false;
+            break;
+        default:
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;

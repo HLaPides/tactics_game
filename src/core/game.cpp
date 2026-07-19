@@ -169,15 +169,27 @@ void game::update_visibility() {
 void game::check_win_conditions() {
     if (state.win_state != WinState::ONGOING) return;
 
+    // defeat — all players dead
     bool any_alive = false;
-    for (auto& p : state.players) {
+    for (auto& p : state.players)
         if (p.is_alive()) { any_alive = true; break; }
-    }
     if (!any_alive) {
         state.win_state = WinState::DEFEAT;
         return;
     }
 
+    // check if Vane is dead — assume alive until proven otherwise
+    bool vane_dead = false;
+    for (auto& e : state.enemies) {
+        if (e.get_type() == EnemyType::CAPTAIN && !e.is_alive()) {
+            vane_dead = true;
+            break;
+        }
+    }
+
+    if (!vane_dead) return;
+
+    // Vane is dead — check if any player holds an objective tile
     for (auto& p : state.players) {
         if (!p.is_alive()) continue;
         if (state.map.is_objective(p.get_x_pos(), p.get_y_pos())) {
