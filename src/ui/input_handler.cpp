@@ -78,11 +78,11 @@ std::vector<int> InputHandler::get_valid_targets(const GameState& state) const {
                             abs(e.get_y_pos() - active.get_y_pos()));
 
         bool valid = false;
-        if (state.mode == ActionMode::SHOOT   ||
+        if (state.mode == ActionMode::SHOOT      ||
             state.mode == ActionMode::AIMED_SHOT ||
             state.mode == ActionMode::DIRTY_TRICK) {
-            valid = dist <= active.get_sight_range() &&
-                    has_los(active.get_x_pos(), active.get_y_pos(),
+            // no range limit — just needs LOS
+            valid = has_los(active.get_x_pos(), active.get_y_pos(),
                             e.get_x_pos(), e.get_y_pos(), state.map);
         } else if (state.mode == ActionMode::MELEE) {
             valid = dist <= 1;
@@ -105,8 +105,7 @@ std::optional<Intent> InputHandler::poll(GameState& state, const Camera2D& cam) 
     // Tab — cycle targets in attack/heal mode, cycle units otherwise
     if (IsKeyPressed(KEY_TAB) && state.phase == GamePhase::PLAYER_TURN) {
         if (state.mode != ActionMode::NONE &&
-            state.mode != ActionMode::RUSH &&
-            state.mode != ActionMode::OVERWATCH) {
+            state.mode != ActionMode::RUSH) {
             auto targets = get_valid_targets(state);
             if (!targets.empty()) {
                 int cur = -1;
@@ -126,12 +125,6 @@ std::optional<Intent> InputHandler::poll(GameState& state, const Camera2D& cam) 
             if (next != state.selected_player)
                 return Intent{ IntentType::SelectUnit, 0, 0, next };
         }
-    }
-
-    // overwatch fires immediately
-    if (state.mode == ActionMode::OVERWATCH && state.phase == GamePhase::PLAYER_TURN) {
-        state.mode = ActionMode::NONE;
-        return Intent{ IntentType::Overwatch };
     }
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || IsKeyPressed(KEY_ESCAPE)) {
@@ -263,7 +256,7 @@ void InputHandler::update_preview(GameState& state, const Camera2D& cam) {
     if (state.mode == ActionMode::HEAL) return;
 
     // attack preview from target_index
-    bool attack_mode = (state.mode == ActionMode::SHOOT     ||
+    bool attack_mode = (state.mode == ActionMode::SHOOT      ||
                         state.mode == ActionMode::AIMED_SHOT ||
                         state.mode == ActionMode::MELEE      ||
                         state.mode == ActionMode::DIRTY_TRICK);
@@ -278,14 +271,17 @@ void InputHandler::update_preview(GameState& state, const Camera2D& cam) {
             state.preview.active = true;
             state.preview.target = &e;
             state.preview.result = calculate_odds(active, e, state.map, base_dmg);
-            if (state.mode == ActionMode::AIMED_SHOT)
+            if (state.mode == ActionMode::AIMED_SHOT) {
+                state.preview.result.hit_chance  = std::min(99,
+                    state.preview.result.hit_chance + 20);
                 state.preview.result.crit_chance =
                     state.preview.result.is_flanking ? 35 : 20;
+            }
         }
         return;
     }
 
-    // fallback hover preview
+    // fallback hover preview — no range limit, just needs LOS
     if (!mouse_on_grid(mouse) || !attack_mode) return;
 
     int mx = mouse_tile_x(mouse, cam);
@@ -299,12 +295,13 @@ void InputHandler::update_preview(GameState& state, const Camera2D& cam) {
 
         int dist = std::max(abs(mx - active.get_x_pos()),
                             abs(my - active.get_y_pos()));
+
         bool in_range = false;
-        if (state.mode == ActionMode::SHOOT    ||
+        if (state.mode == ActionMode::SHOOT      ||
             state.mode == ActionMode::AIMED_SHOT ||
             state.mode == ActionMode::DIRTY_TRICK) {
-            in_range = dist <= active.get_sight_range() &&
-                       has_los(active.get_x_pos(), active.get_y_pos(),
+            // no range limit — just needs LOS
+            in_range = has_los(active.get_x_pos(), active.get_y_pos(),
                                e.get_x_pos(), e.get_y_pos(), state.map);
         } else if (state.mode == ActionMode::MELEE) {
             in_range = dist <= 1;
@@ -317,9 +314,12 @@ void InputHandler::update_preview(GameState& state, const Camera2D& cam) {
             state.preview.active = true;
             state.preview.target = &e;
             state.preview.result = calculate_odds(active, e, state.map, base_dmg);
-            if (state.mode == ActionMode::AIMED_SHOT)
+            if (state.mode == ActionMode::AIMED_SHOT) {
+                state.preview.result.hit_chance  = std::min(99,
+                    state.preview.result.hit_chance + 20);
                 state.preview.result.crit_chance =
                     state.preview.result.is_flanking ? 35 : 20;
+            }
         }
         break;
     }

@@ -17,8 +17,8 @@ namespace UnitFactory {
     inline unit make_sharpshooter(int col, int row) {
         unit u(col, row, UnitPresets::Sharpshooter());
         u.add_ability(AbilityDefs::make_shoot());
+        u.add_ability(AbilityDefs::make_melee());
         u.add_ability(AbilityDefs::make_aimed_shot());
-        u.add_ability(AbilityDefs::make_overwatch());
         return u;
     }
 

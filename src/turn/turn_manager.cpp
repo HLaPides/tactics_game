@@ -31,7 +31,6 @@ void TurnManager::apply_player_intent(const Intent& intent, GameState& state) {
         case IntentType::Shoot:      ActionExecutor::execute_shoot(intent, state);       break;
         case IntentType::Melee:      ActionExecutor::execute_melee(intent, state);       break;
         case IntentType::AimedShot:  ActionExecutor::execute_aimed_shot(intent, state);  break;
-        case IntentType::Overwatch:  ActionExecutor::execute_overwatch(state);           break;
         case IntentType::Rush:       ActionExecutor::execute_rush(intent, state);        break;
         case IntentType::Heal:       ActionExecutor::execute_heal(intent, state);        break;
         case IntentType::DirtyTrick: ActionExecutor::execute_dirty_trick(intent, state); break;
@@ -106,46 +105,9 @@ void TurnManager::update_enemy_turn(float dt, GameState& state, AIController& ai
             ai.act(acting, *target, state.enemies, state.map, state.floating_texts);
 
         acting.tick_aim_penalty();
-        check_overwatch(state, acting);
         enemy_index++;
     } else {
         end_enemy_turn(state);
-    }
-}
-
-void TurnManager::check_overwatch(GameState& state, const enemy& acting_enemy) {
-    for (auto& p : state.players) {
-        if (!p.is_alive()) continue;
-        if (!p.is_on_overwatch()) continue;
-
-        int dist = std::max(abs(p.get_x_pos() - acting_enemy.get_x_pos()),
-                            abs(p.get_y_pos() - acting_enemy.get_y_pos()));
-        if (dist > p.get_sight_range()) continue;
-        if (!has_los(p.get_x_pos(), p.get_y_pos(),
-                     acting_enemy.get_x_pos(), acting_enemy.get_y_pos(), state.map)) continue;
-
-        for (auto& e : state.enemies) {
-            if (!e.is_alive()) continue;
-            if (e.get_x_pos() != acting_enemy.get_x_pos() ||
-                e.get_y_pos() != acting_enemy.get_y_pos()) continue;
-
-            AttackResult result = resolve_attack(
-                const_cast<unit&>(p), e, state.map, p.get_shoot_damage());
-            e.take_damage(result.damage);
-
-            if (!result.hit)
-                state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "MISS!", GRAY);
-            else if (!e.is_alive())
-                state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "DEAD!", RED);
-            else if (result.crit)
-                state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "CRIT!", YELLOW);
-            else
-                state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "OW!", SKYBLUE);
-
-            const_cast<unit&>(p).clear_overwatch();
-            break;
-        }
-        break;
     }
 }
 

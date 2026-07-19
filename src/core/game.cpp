@@ -46,7 +46,7 @@ void game::start_mission() {
     reset_mission_state();
 
     std::vector<std::string> levels = {
-    level_dir + "/mutiny_map.tmj"
+        level_dir + "/mutiny_map.tmj"
     };
 
     std::string path = levels[campaign.mission_index % (int)levels.size()];
@@ -98,7 +98,6 @@ bool game::load_level(const std::string& path) {
     state.spotted.assign(state.enemies.size(), false);
     state.selected_player = 0;
 
-    // init camera via renderer
     if (!state.players.empty()) {
         const unit& active = state.players[0];
         renderer.update_camera(
@@ -144,22 +143,25 @@ void game::reset_mission_state() {
 void game::update_visibility() {
     if (state.players.empty()) return;
 
-    for (auto& player : state.players) {
-        if (!player.is_alive()) continue;
-        int px = player.get_x_pos();
-        int py = player.get_y_pos();
-        int sr = player.get_sight_range();
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        if (state.spotted[i]) continue;
+        if (!state.enemies[i].is_alive()) continue;
 
-        for (int i = 0; i < (int)state.enemies.size(); i++) {
-            if (state.spotted[i]) continue;
-            if (!state.enemies[i].is_alive()) continue;
+        int ex = state.enemies[i].get_x_pos();
+        int ey = state.enemies[i].get_y_pos();
 
-            int ex   = state.enemies[i].get_x_pos();
-            int ey   = state.enemies[i].get_y_pos();
+        for (auto& player : state.players) {
+            if (!player.is_alive()) continue;
+            int px = player.get_x_pos();
+            int py = player.get_y_pos();
+            int sr = player.get_sight_range();
             int dist = std::max(abs(ex - px), abs(ey - py));
 
-            if (dist <= sr && has_los(px, py, ex, ey, state.map))
+            // use each player's own sight range but share the result
+            if (dist <= sr && has_los(px, py, ex, ey, state.map)) {
                 state.spotted[i] = true;
+                break;
+            }
         }
     }
 }
@@ -213,7 +215,6 @@ void game::update(float dt) {
             }
         }
 
-        // update camera to follow selected player
         if (!state.players.empty()) {
             const unit& active = state.players[state.selected_player];
             renderer.update_camera(
@@ -241,9 +242,9 @@ void game::update(float dt) {
         check_win_conditions();
     }
 
-    if (state.mode == ActionMode::SHOOT  ||
-        state.mode == ActionMode::MELEE  ||
-        state.mode == ActionMode::HEAL   ||
+    if (state.mode == ActionMode::SHOOT    ||
+        state.mode == ActionMode::MELEE    ||
+        state.mode == ActionMode::HEAL     ||
         state.mode == ActionMode::DIRTY_TRICK)
         SetMouseCursor(MOUSE_CURSOR_CROSSHAIR);
     else

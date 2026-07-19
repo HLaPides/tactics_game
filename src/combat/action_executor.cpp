@@ -90,9 +90,7 @@ void execute_shoot(const Intent& intent, GameState& state) {
         if (!state.spotted[i]) continue;
         if (e.get_x_pos() != intent.target_x || e.get_y_pos() != intent.target_y) continue;
 
-        int dist = std::max(abs(intent.target_x - active.get_x_pos()),
-                            abs(intent.target_y - active.get_y_pos()));
-        if (dist > active.get_sight_range()) break;
+        // no range limit — aim penalty in calculate_odds handles distance dropoff
         if (!has_los(active.get_x_pos(), active.get_y_pos(),
                      e.get_x_pos(), e.get_y_pos(), state.map)) break;
 
@@ -116,17 +114,14 @@ void execute_aimed_shot(const Intent& intent, GameState& state) {
         if (!state.spotted[i]) continue;
         if (e.get_x_pos() != intent.target_x || e.get_y_pos() != intent.target_y) continue;
 
-        int dist = std::max(abs(intent.target_x - active.get_x_pos()),
-                            abs(intent.target_y - active.get_y_pos()));
-        if (dist > active.get_sight_range()) break;
+        // no range limit — aimed shot is the long range option
         if (!has_los(active.get_x_pos(), active.get_y_pos(),
                      e.get_x_pos(), e.get_y_pos(), state.map)) break;
 
-        // aimed shot: +20 aim bonus, higher crit, damage 3 (4 on crit)
         AttackResult result = calculate_odds(active, e, state.map, active.get_shoot_damage());
-        result.hit_chance   = std::min(99, result.hit_chance + 20);  // +20 aim bonus
-        result.crit_chance  = result.is_flanking ? 35 : 20;          // higher crit
-        int aimed_damage    = 3;                                       // flat 3 damage
+        result.hit_chance  = std::min(99, result.hit_chance + 20);
+        result.crit_chance = result.is_flanking ? 35 : 20;
+        int aimed_damage   = 3;
 
         int hit_roll  = GetRandomValue(1, 100);
         int crit_roll = GetRandomValue(1, 100);
@@ -141,17 +136,6 @@ void execute_aimed_shot(const Intent& intent, GameState& state) {
         spawn_attack_texts(e, result, state);
         break;
     }
-}
-
-void execute_overwatch(GameState& state) {
-    unit& active = state.players[state.selected_player];
-    if (active.get_actions() <= 0) return;
-
-    active.set_overwatch(true);
-    while (active.get_actions() > 0) active.use_action();
-    state.mode    = ActionMode::NONE;
-    state.preview = {};
-    state.floating_texts.spawn(active.get_x_pos(), active.get_y_pos(), "OVERWATCH", SKYBLUE);
 }
 
 void execute_melee(const Intent& intent, GameState& state) {
@@ -191,7 +175,7 @@ void execute_heal(const Intent& intent, GameState& state) {
                             abs(intent.target_y - active.get_y_pos()));
         if (dist > 1) break;
 
-        p.heal(5);  // buffed from 2→5
+        p.heal(3);
         active.use_action();
         heal->use();
         state.mode         = ActionMode::NONE;
@@ -214,18 +198,25 @@ void execute_dirty_trick(const Intent& intent, GameState& state) {
         if (!state.spotted[i]) continue;
         if (e.get_x_pos() != intent.target_x || e.get_y_pos() != intent.target_y) continue;
 
-        int dist = std::max(abs(intent.target_x - active.get_x_pos()),
-                            abs(intent.target_y - active.get_y_pos()));
-        if (dist > active.get_sight_range()) break;
+        // no range limit — just needs LOS
         if (!has_los(active.get_x_pos(), active.get_y_pos(),
                      e.get_x_pos(), e.get_y_pos(), state.map)) break;
 
-        e.apply_aim_penalty(30, 1);  // buffed from 20→30
+        // apply aim penalty AND deal damage like a regular attack
+        AttackResult result = resolve_attack(active, e, state.map, active.get_shoot_damage());
+        e.take_damage(result.damage);
+        e.apply_aim_penalty(30, 1);
         active.use_action();
         trick->use();
         state.mode    = ActionMode::NONE;
         state.preview = {};
-        state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "TRICKED!", PURPLE);
+
+        if (!result.hit)
+            state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "TRICKED!", PURPLE);
+        else if (!e.is_alive())
+            state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "DEAD!", RED);
+        else
+            state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "TRICKED!", PURPLE);
         break;
     }
 }

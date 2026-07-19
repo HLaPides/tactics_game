@@ -265,19 +265,16 @@ void Renderer::draw_target_highlights(const GameState& state) {
     int         tile_size = config.tile_size;
 
     if (state.mode == ActionMode::SHOOT || state.mode == ActionMode::AIMED_SHOT) {
-        for (int i = 0; i < (int)state.enemies.size(); i++) {
-            if (!state.enemies[i].is_alive()) continue;
-            if (!state.spotted[i]) continue;
-            const auto& e = state.enemies[i];
-            int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
-                                abs(e.get_y_pos() - active.get_y_pos()));
-            if (dist <= active.get_sight_range() &&
-                has_los(active.get_x_pos(), active.get_y_pos(),
-                        e.get_x_pos(), e.get_y_pos(), state.map))
-                DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                              tile_size, tile_size, Fade(RED, 0.4f));
-        }
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        if (!state.enemies[i].is_alive()) continue;
+        if (!state.spotted[i]) continue;
+        const auto& e = state.enemies[i];
+        if (has_los(active.get_x_pos(), active.get_y_pos(),
+                    e.get_x_pos(), e.get_y_pos(), state.map))
+            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                          tile_size, tile_size, Fade(RED, 0.4f));
     }
+}
 
     if (state.mode == ActionMode::MELEE) {
         for (const auto& e : state.enemies) {
@@ -291,19 +288,16 @@ void Renderer::draw_target_highlights(const GameState& state) {
     }
 
     if (state.mode == ActionMode::DIRTY_TRICK) {
-        for (int i = 0; i < (int)state.enemies.size(); i++) {
-            if (!state.enemies[i].is_alive()) continue;
-            if (!state.spotted[i]) continue;
-            const auto& e = state.enemies[i];
-            int dist = std::max(abs(e.get_x_pos() - active.get_x_pos()),
-                                abs(e.get_y_pos() - active.get_y_pos()));
-            if (dist <= active.get_sight_range() &&
-                has_los(active.get_x_pos(), active.get_y_pos(),
-                        e.get_x_pos(), e.get_y_pos(), state.map))
-                DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
-                              tile_size, tile_size, Fade(PURPLE, 0.4f));
-        }
+    for (int i = 0; i < (int)state.enemies.size(); i++) {
+        if (!state.enemies[i].is_alive()) continue;
+        if (!state.spotted[i]) continue;
+        const auto& e = state.enemies[i];
+        if (has_los(active.get_x_pos(), active.get_y_pos(),
+                    e.get_x_pos(), e.get_y_pos(), state.map))
+            DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
+                          tile_size, tile_size, Fade(PURPLE, 0.4f));
     }
+}
 
     if (state.mode == ActionMode::HEAL) {
         for (int i = 0; i < (int)state.players.size(); i++) {
