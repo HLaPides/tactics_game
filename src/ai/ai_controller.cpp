@@ -8,7 +8,7 @@
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
-static const int VANE_LAIR_COL = 50;  // Vane holds position east of this column
+static const int VANE_LAIR_COL = 53;  // Vane holds position east of this column
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -331,47 +331,42 @@ void AIController::act_captain(enemy& e, unit& player, std::vector<enemy>& enemi
     int px = player.get_x_pos();
     int py = player.get_y_pos();
 
-    bool player_in_lair = (px >= VANE_LAIR_COL);
+    bool player_in_lair  = (px >= VANE_LAIR_COL);
     bool player_adjacent = std::max(abs(e.get_x_pos() - px),
                                      abs(e.get_y_pos() - py)) <= 1;
 
-    if (!player_in_lair) {
-        // player hasn't breached — hold position and shoot
-        if (try_attack(e, player, game_map, texts)) return;
+    // always try to shoot first — Vane is a marksman
+    if (try_attack(e, player, game_map, texts)) return;
 
-        // if can't shoot, find best covered shooting position within the lair
+    if (!player_in_lair) {
+        // player hasn't breached — hold position completely
+        // only reposition within lair if can't shoot
         auto shoot_pos = find_shooting_position(e, player, enemies, game_map);
         if (shoot_pos && shoot_pos->first >= VANE_LAIR_COL) {
-            move_toward_full(e, shoot_pos->first, shoot_pos->second, enemies, player, game_map);
+            move_toward_full(e, shoot_pos->first, shoot_pos->second,
+                             enemies, player, game_map);
             return;
         }
-
-        // otherwise hold completely — don't leave the lair
+        // can't improve position — hold
         e.use_action();
         return;
     }
 
-    // player is in the lair — Vane becomes aggressive
-    // priority 1: melee if adjacent
+    // player breached the lair — Vane fights back
     if (player_adjacent) {
         if (try_melee(e, player, game_map, texts)) return;
     }
 
-    // priority 2: shoot if LOS
-    if (try_attack(e, player, game_map, texts)) return;
-
-    // priority 3: find covered shooting position within lair
+    // find covered shooting position within lair
     auto shoot_pos = find_shooting_position(e, player, enemies, game_map);
     if (shoot_pos && shoot_pos->first >= VANE_LAIR_COL) {
-        move_toward_full(e, shoot_pos->first, shoot_pos->second, enemies, player, game_map);
+        move_toward_full(e, shoot_pos->first, shoot_pos->second,
+                         enemies, player, game_map);
         return;
     }
 
-    // last resort — move toward player but stay in lair if possible
-    if (e.get_x_pos() >= VANE_LAIR_COL)
-        move_toward_full(e, px, py, enemies, player, game_map);
-    else
-        e.use_action();  // hold rather than leave
+    // last resort — hold rather than leave
+    e.use_action();
 }
 
 // ─── main entry point ────────────────────────────────────────────────────────

@@ -62,5 +62,5 @@ namespace UnitPresets {
     inline UnitStats Swashbuckler() { return {  5,  6,  65,   8,  5,   1,   2,   8 }; }
     inline UnitStats Soldier()      { return {  4,  4,  60,   5,  4,   1,   1,   6 }; }
     inline UnitStats Guard()        { return {  5,  5,  50,   8,  2,   1,   2,   6 }; }
-    inline UnitStats Captain() { return { 5, 6, 85, 5, 7, 3, 4, 12 }; }
+    inline UnitStats Captain() { return { 5, 6, 75, 5, 7, 3, 4, 8 }; }
 }
