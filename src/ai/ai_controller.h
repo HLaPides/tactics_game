@@ -23,9 +23,8 @@ private:
     // shared actions
     bool try_attack(enemy& e, unit& player, const GameMap& game_map, FloatingTextManager& texts);
     bool try_melee(enemy& e, unit& player, const GameMap& game_map, FloatingTextManager& texts);
-    void move_toward(enemy& e, unit& player, std::vector<enemy>& enemies, const GameMap& game_map);
-    void move_to(enemy& e, int tx, int ty, std::vector<enemy>& enemies,
-                 unit& player, const GameMap& game_map);
+    void move_toward_full(enemy& e, int tx, int ty, std::vector<enemy>& enemies,
+                          unit& player, const GameMap& game_map);
 
     // positioning helpers
     bool is_hurt(const enemy& e) const;
@@ -48,7 +47,6 @@ private:
     bool tile_occupied(int x, int y, const unit& player,
                        const std::vector<enemy>& enemies, const enemy& self) const;
 
-    // average attack direction of all living enemies
     std::pair<float,float> average_attack_vector(
         const unit& player, const std::vector<enemy>& enemies) const;
 };

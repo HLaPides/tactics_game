@@ -6,7 +6,6 @@
 
 namespace ActionExecutor {
 
-// helper — spawn death text if enemy just died from an attack
 static void spawn_attack_texts(enemy& e, const AttackResult& result, GameState& state) {
     if (!result.hit) {
         state.floating_texts.spawn(e.get_x_pos(), e.get_y_pos(), "MISS!", GRAY);
@@ -123,15 +122,17 @@ void execute_aimed_shot(const Intent& intent, GameState& state) {
         if (!has_los(active.get_x_pos(), active.get_y_pos(),
                      e.get_x_pos(), e.get_y_pos(), state.map)) break;
 
+        // aimed shot: +20 aim bonus, higher crit, damage 3 (4 on crit)
         AttackResult result = calculate_odds(active, e, state.map, active.get_shoot_damage());
-        result.crit_chance  = result.is_flanking ? 35 : 20;
+        result.hit_chance   = std::min(99, result.hit_chance + 20);  // +20 aim bonus
+        result.crit_chance  = result.is_flanking ? 35 : 20;          // higher crit
+        int aimed_damage    = 3;                                       // flat 3 damage
 
         int hit_roll  = GetRandomValue(1, 100);
         int crit_roll = GetRandomValue(1, 100);
         result.hit    = hit_roll  <= result.hit_chance;
         result.crit   = result.hit && (crit_roll <= result.crit_chance);
-        result.damage = result.hit ? (result.crit ? active.get_shoot_damage() * 2
-                                                  : active.get_shoot_damage()) : 0;
+        result.damage = result.hit ? (result.crit ? aimed_damage * 2 : aimed_damage) : 0;
 
         e.take_damage(result.damage);
         active.use_actions(2);
@@ -190,13 +191,13 @@ void execute_heal(const Intent& intent, GameState& state) {
                             abs(intent.target_y - active.get_y_pos()));
         if (dist > 1) break;
 
-        p.heal(2);
+        p.heal(5);  // buffed from 2→5
         active.use_action();
         heal->use();
         state.mode         = ActionMode::NONE;
         state.preview      = {};
         state.target_index = -1;
-        state.floating_texts.spawn(p.get_x_pos(), p.get_y_pos(), "+2 HP", GREEN);
+        state.floating_texts.spawn(p.get_x_pos(), p.get_y_pos(), "+3 HP", GREEN);
         break;
     }
 }
@@ -219,7 +220,7 @@ void execute_dirty_trick(const Intent& intent, GameState& state) {
         if (!has_los(active.get_x_pos(), active.get_y_pos(),
                      e.get_x_pos(), e.get_y_pos(), state.map)) break;
 
-        e.apply_aim_penalty(20, 1);
+        e.apply_aim_penalty(30, 1);  // buffed from 20→30
         active.use_action();
         trick->use();
         state.mode    = ActionMode::NONE;

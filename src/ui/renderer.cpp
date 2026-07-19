@@ -5,6 +5,33 @@
 #include <cmath>
 #include <cstdio>
 
+// ─── tooltip data ─────────────────────────────────────────────────────────────
+
+struct TooltipData {
+    const char* description;
+    const char* flavor;
+};
+
+static TooltipData get_tooltip(const std::string& id) {
+    if (id == "shoot")       return { "Fire at an enemy in range.",
+                                      "A pirate's answer to most problems." };
+    if (id == "melee")       return { "Strike an adjacent enemy.",
+                                      "They're even uglier up close." };
+    if (id == "heal")        return { "Restore HP to an adjacent ally.",
+                                      "It does the job." };
+    if (id == "rush")        return { "Move without spending an action.",
+                                      "The best offense is a good defense." };
+    if (id == "overwatch")   return { "Fire at enemies that enter LOS.",
+                                      "Patience is a virtue." };
+    if (id == "dirty_trick") return { "Reduce target's aim by 30 for one turn.",
+                                      "If it works it works." };
+    if (id == "aimed_shot")  return { "2 actions; improved aim and damage.",
+                                      "One shot. Make it count." };
+    return { "", "" };
+}
+
+// ─── constructor / destructor ─────────────────────────────────────────────────
+
 Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
     camera.rotation = 0.0f;
@@ -56,26 +83,16 @@ void Renderer::load_sprites() {
         if (tex.id != 0) map[key] = tex;
         printf("[RENDERER] sprite '%s' id=%d\n", key.c_str(), tex.id);
     };
-
     load(unit_sprites,  "Bosun",        "src/assets/sprites/bosun_sprite.png");
     load(unit_sprites,  "Sharpshooter", "src/assets/sprites/sharpshooter_sprite.png");
     load(unit_sprites,  "Medic",        "src/assets/sprites/medic_sprite.png");
     load(unit_sprites,  "Swashbuckler", "src/assets/sprites/swashbuckler_sprite.png");
-
     load(enemy_sprites, "E", "src/assets/sprites/soldier.png");
     load(enemy_sprites, "G", "src/assets/sprites/guard.png");
     load(enemy_sprites, "C", "src/assets/sprites/capt_vane.png");
 }
 
-void Renderer::draw_tile(int tile_id, int x, int y) {
-    if (tile_id <= 0 || tileset.id == 0) return;
-    int idx   = tile_id - 1;
-    int src_x = idx * 32;
-    DrawTexturePro(tileset,
-        { (float)src_x, 0, 32, 32 },
-        { (float)x, (float)y, (float)config.tile_size, (float)config.tile_size },
-        { 0, 0 }, 0.0f, WHITE);
-}
+// ─── portrait ─────────────────────────────────────────────────────────────────
 
 void Renderer::draw_portrait(const GameState& state, int bar_y) {
     if (state.players.empty()) return;
@@ -114,6 +131,31 @@ void Renderer::draw_portrait(const GameState& state, int bar_y) {
         DrawText("[OVERWATCH]", text_x, bar_y + 34, 13, SKYBLUE);
 }
 
+// ─── tooltip ──────────────────────────────────────────────────────────────────
+
+void Renderer::draw_tooltip(const std::string& ability_id, int bx, int by) const {
+    TooltipData tip = get_tooltip(ability_id);
+    if (tip.description[0] == '\0') return;
+
+    int panel_w = 220;
+    int panel_h = 56;
+    int px      = bx + BTN_W / 2 - panel_w / 2;
+    int py      = by - panel_h - 6;
+
+    if (px < 4) px = 4;
+    if (px + panel_w > config.screen_w - 4) px = config.screen_w - panel_w - 4;
+    if (py < 4) py = by + BTN_H + 6;
+
+    DrawRectangle(px, py, panel_w, panel_h,
+                  ColorFromNormalized({0.08f, 0.05f, 0.02f, 0.95f}));
+    DrawRectangleLines(px, py, panel_w, panel_h, Color{140, 110, 70, 255});
+
+    DrawText(tip.description, px + 8, py + 8,  12, Color{220, 200, 160, 255});
+    DrawText(tip.flavor,      px + 8, py + 30, 11, Color{140, 110, 70,  255});
+}
+
+// ─── camera ───────────────────────────────────────────────────────────────────
+
 void Renderer::update_camera(int player_x, int player_y, int map_w) {
     float target_x = player_x * config.tile_size + config.tile_size / 2.0f;
     float half_w   = config.screen_w / 2.0f;
@@ -123,9 +165,9 @@ void Renderer::update_camera(int player_x, int player_y, int map_w) {
     camera.offset = { config.screen_w / 2.0f, config.grid_h / 2.0f };
 }
 
-const Camera2D& Renderer::get_camera() const {
-    return camera;
-}
+const Camera2D& Renderer::get_camera() const { return camera; }
+
+// ─── draw frame ───────────────────────────────────────────────────────────────
 
 void Renderer::draw_frame(const GameState& state) {
     BeginDrawing();
@@ -145,6 +187,8 @@ void Renderer::draw_frame(const GameState& state) {
 
     EndDrawing();
 }
+
+// ─── draw map ─────────────────────────────────────────────────────────────────
 
 void Renderer::draw_map(const GameState& state) {
     const auto& tiles     = state.map.get_tiles();
@@ -175,6 +219,18 @@ void Renderer::draw_map(const GameState& state) {
         }
     }
 }
+
+void Renderer::draw_tile(int tile_id, int x, int y) {
+    if (tile_id <= 0 || tileset.id == 0) return;
+    int idx   = tile_id - 1;
+    int src_x = idx * 32;
+    DrawTexturePro(tileset,
+        { (float)src_x, 0, 32, 32 },
+        { (float)x, (float)y, (float)config.tile_size, (float)config.tile_size },
+        { 0, 0 }, 0.0f, WHITE);
+}
+
+// ─── overlays ─────────────────────────────────────────────────────────────────
 
 void Renderer::draw_range_overlay(const GameState& state) {
     if (state.players.empty()) return;
@@ -279,6 +335,8 @@ void Renderer::draw_target_highlights(const GameState& state) {
     }
 }
 
+// ─── units ────────────────────────────────────────────────────────────────────
+
 void Renderer::draw_units(const GameState& state) {
     int tile_size = config.tile_size;
 
@@ -373,6 +431,8 @@ void Renderer::draw_units(const GameState& state) {
     }
 }
 
+// ─── floating texts ───────────────────────────────────────────────────────────
+
 void Renderer::draw_floating_texts(const GameState& state) {
     int tile_size = config.tile_size;
     for (const auto& ft : state.floating_texts.get_all()) {
@@ -385,6 +445,8 @@ void Renderer::draw_floating_texts(const GameState& state) {
         DrawText(ft.text.c_str(), text_x, text_y, 16, c);
     }
 }
+
+// ─── attack preview ───────────────────────────────────────────────────────────
 
 void Renderer::draw_attack_preview(const GameState& state) {
     if (!state.preview.active || state.preview.target == nullptr) return;
@@ -439,6 +501,8 @@ void Renderer::draw_attack_preview(const GameState& state) {
     if (result.is_flanking)
         DrawText("FLANKED", px + 8, line_y, 12, GREEN);
 }
+
+// ─── HUD ──────────────────────────────────────────────────────────────────────
 
 void Renderer::draw_hud(const GameState& state) {
     if (state.players.empty()) return;
@@ -509,6 +573,9 @@ void Renderer::draw_hud(const GameState& state) {
     const auto& abilities  = active.get_abilities();
     bool        no_actions = (active.get_actions() <= 0);
 
+    int     hovered_btn = -1;
+    Vector2 mouse       = GetMousePosition();
+
     for (int i = 0; i < (int)abilities.size(); i++) {
         const Ability& ab = abilities[i];
         int bx = BTN_START_X + i * (BTN_W + BTN_GAP);
@@ -518,6 +585,11 @@ void Renderer::draw_hud(const GameState& state) {
         bool on_cooldown = !ab.is_ready();
         bool cant_afford = (active.get_actions() < ab.get_cost() && ab.get_cost() > 0);
         bool unavailable = no_actions || on_cooldown || cant_afford;
+
+        if (state.phase == GamePhase::PLAYER_TURN &&
+            mouse.x >= bx && mouse.x <= bx + BTN_W &&
+            mouse.y >= by && mouse.y <= by + BTN_H)
+            hovered_btn = i;
 
         Color bg = is_active
                  ? ColorFromNormalized({0.1f, 0.25f, 0.45f, 0.85f})
@@ -568,6 +640,12 @@ void Renderer::draw_hud(const GameState& state) {
         }
     }
 
+    if (hovered_btn >= 0 && hovered_btn < (int)abilities.size()) {
+        int bx = BTN_START_X + hovered_btn * (BTN_W + BTN_GAP);
+        int by = bar_y + BTN_Y_OFFSET;
+        draw_tooltip(abilities[hovered_btn].get_id(), bx, by);
+    }
+
     DrawLine(config.screen_w - 150, bar_y + 8,
              config.screen_w - 150, bar_y + BAR_HEIGHT - 8,
              Color{120, 90, 50, 255});
@@ -593,6 +671,8 @@ void Renderer::draw_hud(const GameState& state) {
     DrawText("End turn",
              config.screen_w - 142 + 16, bar_y + 62, 16, end_text);
 }
+
+// ─── game over ────────────────────────────────────────────────────────────────
 
 void Renderer::draw_game_over(const GameState& state) {
     if (state.win_state == WinState::ONGOING) return;

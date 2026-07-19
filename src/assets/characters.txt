@@ -1,0 +1,51 @@
+Players
+
+Bosun 1 - Mobility Brawler
+Meele
+Rush
+Charge
+
+Idea is for him to be able to rush in, secure a kill, then rush out (if planned appropriatly)
+
+Swashbuckler 1 - Gambler
+Shoot
+Meele
+Trickshot
+
+Idea is to have a risk vs reward playstyle. Can go crazy but abilities can downsides/leave you exposed
+
+
+Medic 1 - Medic
+Shoot
+Meele
+Heal
+
+Pretty generic support character, shitty damage but does the job he needs to
+
+Sharpshooter 1 - Sharpshooter
+Shoot
+Meele
+Overwatch
+Aimed Shot
+
+Pretty generic Sharpshooter, you do good damage from a distance
+
+
+Enemies
+
+Soldier
+Shoot
+Meele
+
+its a guy with a gun. Nothing too fancy
+
+Guard
+Meele
+
+Generic Goon
+
+Cpt. Vane
+Shoot
+Meele
+???
+Boss fight
