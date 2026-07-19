@@ -101,8 +101,9 @@ void TurnManager::update_enemy_turn(float dt, GameState& state, AIController& ai
             }
         }
 
-        if (target != nullptr)
+        if (target != nullptr && state.spotted[enemy_index]) {
             ai.act(acting, *target, state.enemies, state.map, state.floating_texts);
+        }
 
         acting.tick_aim_penalty();
         enemy_index++;
