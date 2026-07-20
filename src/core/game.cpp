@@ -6,10 +6,10 @@
 #include <vector>
 #include <string>
 #include <functional>
-#include <unordered_map>
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include <cctype>
 
 // ─── constructor ──────────────────────────────────────────────────────────────
 
@@ -25,6 +25,84 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
 {
     init_campaign();
     start_mission();
+}
+
+// ─── enemy defs ───────────────────────────────────────────────────────────────
+
+void game::load_enemy_defs(const std::string& path) {
+    std::ifstream f(path);
+    if (!f.is_open()) return;
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    std::string src = ss.str();
+
+    size_t arr_pos = src.find("\"enemies\"");
+    if (arr_pos == std::string::npos) return;
+    size_t arr_start = src.find('[', arr_pos);
+    if (arr_start == std::string::npos) return;
+
+    size_t search = arr_start + 1;
+    while (true) {
+        size_t obj_start = src.find('{', search);
+        if (obj_start == std::string::npos) break;
+
+        int    depth = 1;
+        size_t p     = obj_start + 1;
+        while (p < src.size() && depth > 0) {
+            if (src[p] == '{') depth++;
+            else if (src[p] == '}') depth--;
+            p++;
+        }
+        std::string obj = src.substr(obj_start, p - obj_start);
+        search = p;
+
+        // skip the outer array wrapper
+        if (obj.find("\"enemies\"") != std::string::npos) continue;
+
+        auto jstr = [&](const std::string& key, const std::string& def) -> std::string {
+            std::string k = "\"" + key + "\"";
+            size_t pos = obj.find(k);
+            if (pos == std::string::npos) return def;
+            pos = obj.find(':', pos);
+            if (pos == std::string::npos) return def;
+            pos = obj.find('"', pos);
+            if (pos == std::string::npos) return def;
+            pos++;
+            size_t end = obj.find('"', pos);
+            if (end == std::string::npos) return def;
+            return obj.substr(pos, end - pos);
+        };
+
+        auto jint = [&](const std::string& key, int def) -> int {
+            std::string k = "\"" + key + "\"";
+            size_t pos = obj.find(k);
+            if (pos == std::string::npos) return def;
+            pos = obj.find(':', pos);
+            if (pos == std::string::npos) return def;
+            pos++;
+            while (pos < obj.size() && std::isspace((unsigned char)obj[pos])) pos++;
+            try { return std::stoi(obj.substr(pos)); }
+            catch (...) { return def; }
+        };
+
+        EnemyDef def;
+        def.id          = jstr("id",     "soldier");
+        def.sprite      = jstr("sprite", "soldier");
+        def.ai_behavior = jstr("ai",     "soldier");
+        std::string sc  = jstr("spawn_char", "E");
+        def.spawn_char  = sc.empty() ? 'E' : sc[0];
+
+        def.stats.movement     = jint("movement",     4);
+        def.stats.hp           = jint("hp",           4);
+        def.stats.aim          = jint("aim",          60);
+        def.stats.defense      = jint("defense",      5);
+        def.stats.shoot_range  = jint("shoot_range",  4);
+        def.stats.shoot_damage = jint("shoot_damage", 1);
+        def.stats.melee_damage = jint("melee_damage", 1);
+        def.stats.sight_range  = jint("sight_range",  6);
+
+        enemy_defs.push_back(def);
+    }
 }
 
 // ─── save / load ──────────────────────────────────────────────────────────────
@@ -57,7 +135,6 @@ bool game::load_campaign(const std::string& path) {
     ss << f.rdbuf();
     std::string src = ss.str();
 
-    // read mission index
     int mission_index = 0;
     {
         size_t pos = src.find("\"mission_index\"");
@@ -72,7 +149,6 @@ bool game::load_campaign(const std::string& path) {
         }
     }
 
-    // read roster entries
     std::vector<std::string> names;
     std::vector<bool>        dead_flags;
 
@@ -137,6 +213,7 @@ bool game::load_campaign(const std::string& path) {
 // ─── campaign ─────────────────────────────────────────────────────────────────
 
 void game::init_campaign() {
+    load_enemy_defs("levels/enemies.json");
     if (load_campaign("save.json")) return;
 
     struct RosterEntry {
@@ -180,13 +257,6 @@ bool game::load_level(const std::string& path) {
                   return a.type < b.type;
               });
 
-    using EnemyFactory = std::function<enemy(int,int)>;
-    std::unordered_map<char, EnemyFactory> enemy_types = {
-        { 'E', UnitFactory::make_soldier },
-        { 'G', UnitFactory::make_guard   },
-        { 'C', UnitFactory::make_captain },
-    };
-
     for (auto& sp : player_spawns) {
         int roster_idx = sp.type - '1';
         if (roster_idx < 0 || roster_idx >= (int)campaign.roster.size()) continue;
@@ -202,9 +272,14 @@ bool game::load_level(const std::string& path) {
     }
 
     for (auto& sp : enemy_spawns) {
-        auto it = enemy_types.find(sp.type);
-        if (it == enemy_types.end()) continue;
-        state.enemies.push_back(it->second(sp.col, sp.row));
+        for (auto& def : enemy_defs) {
+            if (def.spawn_char == sp.type) {
+                state.enemies.push_back(enemy(
+                    sp.col, sp.row, def.stats,
+                    def.id, def.ai_behavior, def.sprite));
+                break;
+            }
+        }
     }
 
     if (state.players.empty()) return false;
@@ -305,11 +380,7 @@ void game::check_win_conditions() {
             bool any_target_alive = false;
             for (auto& e : state.enemies) {
                 if (!e.is_alive()) continue;
-                if (obj.target == "captain" && e.get_type() == EnemyType::CAPTAIN)
-                    any_target_alive = true;
-                else if (obj.target == "soldier" && e.get_type() == EnemyType::SOLDIER)
-                    any_target_alive = true;
-                else if (obj.target == "guard" && e.get_type() == EnemyType::GUARD)
+                if (e.get_type_id() == obj.target)
                     any_target_alive = true;
             }
             met = !any_target_alive;
@@ -336,6 +407,7 @@ void game::update(float dt) {
         if (state.win_state == WinState::DEFEAT && IsKeyPressed(KEY_R)) {
             std::remove("save.json");
             campaign = CampaignState{};
+            enemy_defs.clear();
             init_campaign();
             start_mission();
         }

@@ -1,6 +1,5 @@
 #pragma once
 #include "unit.h"
-#include "enemy.h"
 #include "../abilities/ability_defs.h"
 #include "../core/types.h"
 
@@ -36,17 +35,5 @@ namespace UnitFactory {
         u.add_ability(AbilityDefs::make_melee());
         u.add_ability(AbilityDefs::make_dirty_trick());
         return u;
-    }
-
-    inline enemy make_soldier(int col, int row) {
-        return enemy(col, row, UnitPresets::Soldier(), EnemyType::SOLDIER);
-    }
-
-    inline enemy make_guard(int col, int row) {
-        return enemy(col, row, UnitPresets::Guard(), EnemyType::GUARD);
-    }
-
-    inline enemy make_captain(int col, int row) {
-        return enemy(col, row, UnitPresets::Captain(), EnemyType::CAPTAIN);
     }
 }

@@ -81,9 +81,9 @@ void Renderer::load_sprites() {
     load(unit_sprites,  "Sharpshooter", "src/assets/sprites/sharpshooter_sprite.png");
     load(unit_sprites,  "Medic",        "src/assets/sprites/medic_sprite.png");
     load(unit_sprites,  "Swashbuckler", "src/assets/sprites/swashbuckler_sprite.png");
-    load(enemy_sprites, "E", "src/assets/sprites/soldier.png");
-    load(enemy_sprites, "G", "src/assets/sprites/guard.png");
-    load(enemy_sprites, "C", "src/assets/sprites/capt_vane.png");
+    load(enemy_sprites, "soldier",    "src/assets/sprites/soldier.png");
+    load(enemy_sprites, "guard",      "src/assets/sprites/guard.png");
+    load(enemy_sprites, "capt_vane",  "src/assets/sprites/capt_vane.png");
 }
 
 // ─── portrait ─────────────────────────────────────────────────────────────────
@@ -119,8 +119,6 @@ void Renderer::draw_portrait(const GameState& state, int bar_y) {
     int text_x = port_x + port_w + 12;
     const char* name = pname.empty() ? "Unit" : pname.c_str();
     DrawText(name, text_x, bar_y + 8, 22, Color{60, 35, 15, 255});
-
-    const unit& active = state.players[state.selected_player];
 }
 
 // ─── tooltip ──────────────────────────────────────────────────────────────────
@@ -156,12 +154,7 @@ void Renderer::draw_objectives(const GameState& state) const {
         if (obj.type == Objective::Type::KILL_UNIT) {
             for (auto& e : state.enemies) {
                 if (!e.is_alive()) continue;
-                if (obj.target == "captain" && e.get_type() == EnemyType::CAPTAIN)
-                    return false;
-                if (obj.target == "soldier" && e.get_type() == EnemyType::SOLDIER)
-                    return false;
-                if (obj.target == "guard"   && e.get_type() == EnemyType::GUARD)
-                    return false;
+                if (e.get_type_id() == obj.target) return false;
             }
             return true;
         }
@@ -320,8 +313,7 @@ void Renderer::draw_target_highlights(const GameState& state) {
                          e.get_x_pos(), e.get_y_pos(), state.map)) continue;
 
             CoverResult cover = get_cover(active, state.enemies[i], state.map);
-
-            Color highlight = cover.flanked ? Fade(GOLD, 0.5f) : Fade(RED, 0.4f);
+            Color highlight   = cover.flanked ? Fade(GOLD, 0.5f) : Fade(RED, 0.4f);
             DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
                           tile_size, tile_size, highlight);
         }
@@ -347,8 +339,7 @@ void Renderer::draw_target_highlights(const GameState& state) {
                          e.get_x_pos(), e.get_y_pos(), state.map)) continue;
 
             CoverResult cover = get_cover(active, state.enemies[i], state.map);
-
-            Color highlight = cover.flanked ? Fade(GOLD, 0.5f) : Fade(PURPLE, 0.4f);
+            Color highlight   = cover.flanked ? Fade(GOLD, 0.5f) : Fade(PURPLE, 0.4f);
             DrawRectangle(e.get_x_pos() * tile_size, e.get_y_pos() * tile_size,
                           tile_size, tile_size, highlight);
         }
@@ -407,16 +398,12 @@ void Renderer::draw_units(const GameState& state) {
 
     for (auto& call : calls) {
         if (!call.is_player) {
-            const enemy& e = state.enemies[call.index];
-            int tx = e.get_x_pos() * tile_size;
-            int ty = e.get_y_pos() * tile_size;
+            const enemy& e  = state.enemies[call.index];
+            int          tx = e.get_x_pos() * tile_size;
+            int          ty = e.get_y_pos() * tile_size;
 
-            std::string ekey = "E";
-            switch (e.get_type()) {
-                case EnemyType::GUARD:   ekey = "G"; break;
-                case EnemyType::CAPTAIN: ekey = "C"; break;
-                default:                 ekey = "E"; break;
-            }
+            // sprite key comes directly from the enemy def
+            std::string ekey = e.get_sprite_key();
 
             auto it = enemy_sprites.find(ekey);
             if (it != enemy_sprites.end() && it->second.id != 0) {

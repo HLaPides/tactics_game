@@ -24,8 +24,8 @@ struct SpawnPoint {
 struct Objective {
     enum class Type { KILL_UNIT, HOLD_TILE };
     Type        type;
-    std::string target;  // for KILL_UNIT — "captain", "soldier", etc.
-    std::string label;   // display text in objectives panel
+    std::string target;
+    std::string label;
     int         col = -1;
     int         row = -1;
 };
@@ -43,7 +43,7 @@ public:
     Tile get_tile(int col, int row) const;
     bool is_walkable(int col, int row) const;
     bool is_objective(int col, int row) const;
-    const std::vector<std::vector<Tile>>& get_tiles() const;
+    const std::vector<std::vector<Tile>>& get_tiles()      const;
     const std::vector<Objective>&         get_objectives() const;
     std::vector<SpawnPoint> get_player_spawns();
     std::vector<SpawnPoint> get_enemy_spawns();
@@ -55,7 +55,9 @@ private:
     std::vector<SpawnPoint>        player_spawns;
     std::vector<SpawnPoint>        enemy_spawns;
     std::vector<Objective>         objectives;
+    std::vector<Tile>              tile_table;
 
+    void load_tileset(const std::string& tsx_path);
     Tile tile_from_id(int id) const;
 
     static std::string      read_file(const std::string& path);

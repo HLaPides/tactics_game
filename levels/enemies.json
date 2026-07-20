@@ -1,0 +1,34 @@
+{
+  "enemies": [
+    {
+      "id": "soldier",
+      "spawn_char": "E",
+      "sprite": "soldier",
+      "ai": "soldier",
+      "stats": {
+        "movement": 4, "hp": 4, "aim": 60, "defense": 5,
+        "shoot_range": 4, "shoot_damage": 1, "melee_damage": 1, "sight_range": 6
+      }
+    },
+    {
+      "id": "guard",
+      "spawn_char": "G",
+      "sprite": "guard",
+      "ai": "guard",
+      "stats": {
+        "movement": 5, "hp": 5, "aim": 50, "defense": 8,
+        "shoot_range": 2, "shoot_damage": 1, "melee_damage": 2, "sight_range": 6
+      }
+    },
+    {
+      "id": "captain",
+      "spawn_char": "C",
+      "sprite": "capt_vane",
+      "ai": "captain",
+      "stats": {
+        "movement": 5, "hp": 6, "aim": 75, "defense": 5,
+        "shoot_range": 7, "shoot_damage": 3, "melee_damage": 4, "sight_range": 8
+      }
+    }
+  ]
+}

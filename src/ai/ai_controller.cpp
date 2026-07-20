@@ -349,11 +349,11 @@ void AIController::act(enemy& e, unit& player, std::vector<enemy>& enemies,
 
     for (int a = 0; a < 2; a++) {
         if (e.get_actions() <= 0) break;
-        switch (e.get_type()) {
-            case EnemyType::SOLDIER: act_soldier(e, player, enemies, game_map, texts); break;
-            case EnemyType::GUARD:   act_guard(e, player, enemies, game_map, texts);   break;
-            case EnemyType::CAPTAIN: act_captain(e, player, enemies, game_map, texts); break;
-        }
+        const std::string& behavior = e.get_ai_behavior();
+        if      (behavior == "soldier") act_soldier(e, player, enemies, game_map, texts);
+        else if (behavior == "guard")   act_guard(e, player, enemies, game_map, texts);
+        else if (behavior == "captain") act_captain(e, player, enemies, game_map, texts);
+        else                            act_soldier(e, player, enemies, game_map, texts);
     }
     e.reset_actions();
 }

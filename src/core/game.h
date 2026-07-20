@@ -5,8 +5,10 @@
 #include "../turn/turn_manager.h"
 #include "../ai/ai_controller.h"
 #include "../ui/renderer.h"
-#include "types.h"
+#include "../units/enemy.h"
+#include "../core/types.h"
 #include <string>
+#include <vector>
 
 class game {
 public:
@@ -21,6 +23,16 @@ private:
     AIController   ai;
     Renderer       renderer;
     std::string    level_dir;
+
+    struct EnemyDef {
+        std::string id;
+        std::string sprite;
+        std::string ai_behavior;
+        char        spawn_char;
+        UnitStats   stats;
+    };
+    std::vector<EnemyDef> enemy_defs;
+    void load_enemy_defs(const std::string& path);
 
     void init_campaign();
     bool load_level(const std::string& path);
