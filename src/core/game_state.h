@@ -25,4 +25,5 @@ struct GameState {
     WinState                 win_state    = WinState::ONGOING;
     int                      target_index = -1;
     int                      turn_count   = 0;
+    bool show_title = true;
 };

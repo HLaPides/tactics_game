@@ -403,6 +403,14 @@ void game::check_win_conditions() {
 // ─── update / draw ────────────────────────────────────────────────────────────
 
 void game::update(float dt) {
+
+    if (state.show_title) {
+        if (IsKeyPressed(KEY_ENTER)) {
+            state.show_title = false;
+        }
+        return;
+    }
+
     if (state.win_state != WinState::ONGOING) {
         if (state.win_state == WinState::DEFEAT && IsKeyPressed(KEY_R)) {
             std::remove("save.json");

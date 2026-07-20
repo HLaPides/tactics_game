@@ -210,6 +210,13 @@ const Camera2D& Renderer::get_camera() const { return camera; }
 
 void Renderer::draw_frame(const GameState& state) {
     BeginDrawing();
+
+    if (state.show_title) {
+        draw_title_screen();
+        EndDrawing();
+        return;
+    }
+
     ClearBackground(DARKGRAY);
 
     BeginMode2D(camera);
@@ -723,7 +730,7 @@ void Renderer::draw_game_over(const GameState& state) {
         DrawText(sub, cx - MeasureText(sub, 20) / 2, cy - 72, 20, LIGHTGRAY);
         const char* demo = "Thanks for playing the demo.";
         DrawText(demo, cx - MeasureText(demo, 16) / 2, cy - 44, 16,
-                 Color{160, 130, 60, 255});
+                Color{160, 130, 60, 255});
     } else {
         const char* title = "MUTINY FAILED";
         DrawText(title, cx - MeasureText(title, 48) / 2, cy - 130, 48, RED);
@@ -731,12 +738,13 @@ void Renderer::draw_game_over(const GameState& state) {
         DrawText(sub, cx - MeasureText(sub, 20) / 2, cy - 72, 20, LIGHTGRAY);
     }
 
+    // survived text — push down so it doesn't overlap
     const char* turns = TextFormat("Survived %d turn%s",
                                     state.turn_count,
                                     state.turn_count == 1 ? "" : "s");
-    DrawText(turns, cx - MeasureText(turns, 18) / 2, cy - 44, 18, GRAY);
+    DrawText(turns, cx - MeasureText(turns, 18) / 2, cy - 16, 18, GRAY);
 
-    int  y_offset = cy - 10;
+    int  y_offset = cy + 10;
     bool any_dead = false;
     for (int i = 0; i < (int)state.players.size(); i++) {
         if (state.players[i].is_alive()) continue;
@@ -763,4 +771,43 @@ void Renderer::draw_game_over(const GameState& state) {
         DrawText(restart, cx - MeasureText(restart, 20) / 2,
                  cy + 90, 20, WHITE);
     }
+}
+
+
+//Title screen
+void Renderer::draw_title_screen() const {
+    int cx = config.screen_w / 2;
+    int cy = config.screen_h / 2;
+
+    ClearBackground(Color{10, 8, 5, 255});
+
+    const char* title = "MUTINY";
+    DrawText(title, cx - MeasureText(title, 72) / 2, cy - 180, 72,
+             Color{200, 160, 60, 255});
+
+    DrawLine(cx - 200, cy - 90, cx + 200, cy - 90, Color{100, 80, 40, 255});
+
+    int line_y = cy - 70;
+    const int LINE_H = 32;
+    Color     text_c = Color{180, 160, 120, 255};
+    int       size   = 20;
+
+    auto draw_centered = [&](const char* text, int y, int font_size, Color c) {
+        DrawText(text, cx - MeasureText(text, font_size) / 2, y, font_size, c);
+    };
+
+    draw_centered("Captain Vane has become a liability.", line_y, size, text_c);
+    line_y += LINE_H;
+    draw_centered("The crew is starving, his promises are worthless,", line_y, size, text_c);
+    line_y += LINE_H;
+    draw_centered("and every voyage costs more lives than gold.", line_y, size, text_c);
+    line_y += LINE_H * 2;
+    draw_centered("Tonight, a few desperate pirates have decided", line_y, size, text_c);
+    line_y += LINE_H;
+    draw_centered("to settle the matter the old fashioned way.", line_y, size, text_c);
+    line_y += LINE_H * 2;
+
+    DrawLine(cx - 200, cy + 120, cx + 200, cy + 120, Color{100, 80, 40, 255});
+
+    draw_centered("-- Press Enter --", cy + 140, 14, Color{140, 110, 60, 255});
 }
