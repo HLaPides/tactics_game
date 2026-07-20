@@ -20,79 +20,64 @@ Tile GameMap::tile_from_id(int id) const {
     t.is_objective = false;
 
     switch (id) {
-        case 0:
-        case 1:
-        case 2:
-        case 3:
+        case 0: case 1: case 2: case 3:
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;
-        case 4:  // shelf
+        case 4:
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 5:  // cannonball
+        case 5:
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;
-        case 6:  // floor
+        case 6:
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;
-        case 7:  // water
+        case 7:
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 8:   // wall vertical
-        case 9:   // wall horizontal
-        case 10:  // wall horizontal variant
+        case 8: case 9: case 10:
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 11:  // objective
+        case 11:
             t.type = TILE_OBJECTIVE; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             t.is_objective = true;
             break;
-        case 12:  // railing wood — half cover
+        case 12:
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 13:  // railing water — impassable
+        case 13:
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 14:  // grate variants
-        case 15:
-        case 16:
-        case 17:
+        case 14: case 15: case 16: case 17:
             t.type = TILE_FLOOR; t.cover = COVER_NONE;
             t.faces = {false,false,false,false}; t.walkable = true;
             break;
-        case 18:  // cannon variants
-        case 19:
-        case 20:
-        case 21:
+        case 18: case 19: case 20: case 21:
             t.type = TILE_WALL; t.cover = COVER_FULL;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 22:  // crate
-        case 23:  // barrel
-        case 24:  // treasure chest
+        case 22: case 23: case 24:
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 25:  // map_01
-        case 26:  // map_02
+        case 25: case 26:
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
-        case 27:  // bed_01
-        case 28:  // bed_02
+        case 27: case 28:
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {false,false,false,false}; t.walkable = false;
             break;
-        case 29:  // globe
+        case 29:
             t.type = TILE_BARREL; t.cover = COVER_HALF;
             t.faces = {true,true,true,true}; t.walkable = false;
             break;
@@ -182,6 +167,55 @@ std::vector<int> GameMap::json_int_array(const std::string& src, const std::stri
     return result;
 }
 
+// extract a named property value from a Tiled properties array
+static std::string parse_property(const std::string& obj_str,
+                                   const std::string& prop_name,
+                                   const std::string& def = "") {
+    // find the properties array
+    size_t props_pos = obj_str.find("\"properties\"");
+    if (props_pos == std::string::npos) return def;
+
+    size_t arr_start = obj_str.find('[', props_pos);
+    if (arr_start == std::string::npos) return def;
+    size_t arr_end = obj_str.find(']', arr_start);
+    if (arr_end == std::string::npos) return def;
+
+    std::string props = obj_str.substr(arr_start, arr_end - arr_start + 1);
+
+    // scan each property object for our name
+    size_t search = 0;
+    while (true) {
+        size_t obj = props.find('{', search);
+        if (obj == std::string::npos) break;
+        size_t end = props.find('}', obj);
+        if (end == std::string::npos) break;
+        std::string entry = props.substr(obj, end - obj + 1);
+        search = end + 1;
+
+        // check if this is our property
+        size_t name_pos = entry.find("\"name\"");
+        if (name_pos == std::string::npos) continue;
+        name_pos = entry.find('"', name_pos + 6);
+        if (name_pos == std::string::npos) continue;
+        name_pos++;
+        size_t name_end = entry.find('"', name_pos);
+        if (name_end == std::string::npos) continue;
+        std::string found_name = entry.substr(name_pos, name_end - name_pos);
+        if (found_name != prop_name) continue;
+
+        // extract the value
+        size_t val_pos = entry.find("\"value\"");
+        if (val_pos == std::string::npos) continue;
+        val_pos = entry.find('"', val_pos + 7);
+        if (val_pos == std::string::npos) continue;
+        val_pos++;
+        size_t val_end = entry.find('"', val_pos);
+        if (val_end == std::string::npos) continue;
+        return entry.substr(val_pos, val_end - val_pos);
+    }
+    return def;
+}
+
 bool GameMap::load(const std::string& filepath) {
     std::string src = read_file(filepath);
     if (src.empty()) {
@@ -192,6 +226,7 @@ bool GameMap::load(const std::string& filepath) {
     tiles.clear();
     player_spawns.clear();
     enemy_spawns.clear();
+    objectives.clear();
 
     std::string header = src.substr(0, std::min((int)src.size(), 500));
     std::string footer = src.substr(std::max(0, (int)src.size() - 500));
@@ -294,8 +329,37 @@ bool GameMap::load(const std::string& filepath) {
         else if (obj_name == "captain_spawn") {
             enemy_spawns.push_back({col, row, 'C'});
         }
+        else if (obj_name == "objective_kill") {
+            Objective obj;
+            obj.type   = Objective::Type::KILL_UNIT;
+            obj.target = parse_property(obj_str, "target", "captain");
+            obj.label  = parse_property(obj_str, "label",  "Kill the target");
+            objectives.push_back(obj);
+        }
+        else if (obj_name == "objective_hold") {
+            Objective obj;
+            obj.type  = Objective::Type::HOLD_TILE;
+            obj.label = parse_property(obj_str, "label", "Secure the area");
+            obj.col   = col;
+            obj.row   = row;
+            objectives.push_back(obj);
+        }
 
         obj_count++;
+    }
+
+    // if no explicit hold objective was defined, use objective tiles from the map
+    bool has_hold = false;
+    for (auto& o : objectives)
+        if (o.type == Objective::Type::HOLD_TILE) { has_hold = true; break; }
+
+    if (!has_hold) {
+        Objective obj;
+        obj.type  = Objective::Type::HOLD_TILE;
+        obj.label = "Secure the quarters";
+        obj.col   = -1;
+        obj.row   = -1;
+        objectives.push_back(obj);
     }
 
     return true;
@@ -325,6 +389,10 @@ bool GameMap::is_objective(int col, int row) const {
 
 const std::vector<std::vector<Tile>>& GameMap::get_tiles() const {
     return tiles;
+}
+
+const std::vector<Objective>& GameMap::get_objectives() const {
+    return objectives;
 }
 
 std::vector<SpawnPoint> GameMap::get_player_spawns() { return player_spawns; }

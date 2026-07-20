@@ -28,6 +28,8 @@ private:
     void end_mission();
     void write_back_to_roster();
     void reset_mission_state();
+    void save_campaign(const std::string& path) const;
+    bool load_campaign(const std::string& path);
 
     void update_visibility();
     void check_win_conditions();

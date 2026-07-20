@@ -21,6 +21,15 @@ struct SpawnPoint {
     char type;
 };
 
+struct Objective {
+    enum class Type { KILL_UNIT, HOLD_TILE };
+    Type        type;
+    std::string target;  // for KILL_UNIT — "captain", "soldier", etc.
+    std::string label;   // display text in objectives panel
+    int         col = -1;
+    int         row = -1;
+};
+
 class GameMap {
 public:
     GameMap();
@@ -35,6 +44,7 @@ public:
     bool is_walkable(int col, int row) const;
     bool is_objective(int col, int row) const;
     const std::vector<std::vector<Tile>>& get_tiles() const;
+    const std::vector<Objective>&         get_objectives() const;
     std::vector<SpawnPoint> get_player_spawns();
     std::vector<SpawnPoint> get_enemy_spawns();
 private:
@@ -44,10 +54,10 @@ private:
     std::vector<std::vector<Tile>> tiles;
     std::vector<SpawnPoint>        player_spawns;
     std::vector<SpawnPoint>        enemy_spawns;
+    std::vector<Objective>         objectives;
 
     Tile tile_from_id(int id) const;
 
-    // minimal JSON helpers
     static std::string      read_file(const std::string& path);
     static int              json_int(const std::string& src, const std::string& key, int def = 0);
     static std::string      json_string(const std::string& src, const std::string& key, const std::string& def = "");

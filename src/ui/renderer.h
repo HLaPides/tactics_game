@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/game_state.h"
+#include "../map/map.h"
 #include "../combat/combat.h"
 #include "../core/types.h"
 #include "../units/enemy.h"

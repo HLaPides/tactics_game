@@ -7,6 +7,11 @@
 #include <string>
 #include <functional>
 #include <unordered_map>
+#include <fstream>
+#include <sstream>
+#include <cstdio>
+
+// ─── constructor ──────────────────────────────────────────────────────────────
 
 game::game(const std::string& level_dir, const AppConfig& cfg)
     : config(cfg)
@@ -22,19 +27,128 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
     start_mission();
 }
 
+// ─── save / load ──────────────────────────────────────────────────────────────
+
+void game::save_campaign(const std::string& path) const {
+    std::ofstream f(path);
+    if (!f.is_open()) return;
+
+    f << "{\n";
+    f << "  \"mission_index\": " << campaign.mission_index << ",\n";
+    f << "  \"roster\": [\n";
+
+    for (int i = 0; i < (int)campaign.names.size(); i++) {
+        bool dead = campaign.permanently_dead[i];
+        f << "    { \"name\": \"" << campaign.names[i] << "\","
+          << " \"dead\": " << (dead ? "true" : "false") << " }";
+        if (i < (int)campaign.names.size() - 1) f << ",";
+        f << "\n";
+    }
+
+    f << "  ]\n";
+    f << "}\n";
+}
+
+bool game::load_campaign(const std::string& path) {
+    std::ifstream f(path);
+    if (!f.is_open()) return false;
+
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    std::string src = ss.str();
+
+    // read mission index
+    int mission_index = 0;
+    {
+        size_t pos = src.find("\"mission_index\"");
+        if (pos != std::string::npos) {
+            pos = src.find(':', pos);
+            if (pos != std::string::npos) {
+                pos++;
+                while (pos < src.size() && std::isspace((unsigned char)src[pos])) pos++;
+                try { mission_index = std::stoi(src.substr(pos)); }
+                catch (...) {}
+            }
+        }
+    }
+
+    // read roster entries
+    std::vector<std::string> names;
+    std::vector<bool>        dead_flags;
+
+    size_t search = 0;
+    while (true) {
+        size_t obj = src.find('{', search);
+        if (obj == std::string::npos) break;
+        size_t end = src.find('}', obj);
+        if (end == std::string::npos) break;
+        std::string entry = src.substr(obj, end - obj + 1);
+        search = end + 1;
+
+        if (entry.find("mission_index") != std::string::npos) continue;
+        if (entry.find("roster")        != std::string::npos) continue;
+
+        size_t npos = entry.find("\"name\"");
+        if (npos == std::string::npos) continue;
+        npos = entry.find('"', npos + 6);
+        if (npos == std::string::npos) continue;
+        npos++;
+        size_t nend = entry.find('"', npos);
+        if (nend == std::string::npos) continue;
+        std::string name = entry.substr(npos, nend - npos);
+
+        bool dead = entry.find("\"dead\": true") != std::string::npos ||
+                    entry.find("\"dead\":true")  != std::string::npos;
+
+        names.push_back(name);
+        dead_flags.push_back(dead);
+    }
+
+    if (names.empty()) return false;
+
+    campaign = CampaignState{};
+    campaign.mission_index = mission_index;
+
+    struct NamedFactory {
+        std::string name;
+        std::function<unit(int,int)> factory;
+    };
+    std::vector<NamedFactory> factories = {
+        { "Bosun",        UnitFactory::make_bosun        },
+        { "Sharpshooter", UnitFactory::make_sharpshooter },
+        { "Medic",        UnitFactory::make_medic        },
+        { "Swashbuckler", UnitFactory::make_swashbuckler },
+    };
+
+    for (auto& n : names) {
+        for (auto& fac : factories) {
+            if (fac.name == n) {
+                campaign.roster.push_back(fac.factory(0, 0));
+                campaign.names.push_back(n);
+                break;
+            }
+        }
+    }
+    campaign.permanently_dead = dead_flags;
+
+    return true;
+}
+
+// ─── campaign ─────────────────────────────────────────────────────────────────
+
 void game::init_campaign() {
+    if (load_campaign("save.json")) return;
+
     struct RosterEntry {
         std::function<unit(int,int)> factory;
         std::string                  name;
     };
-
     std::vector<RosterEntry> entries = {
         { UnitFactory::make_bosun,        "Bosun"        },
         { UnitFactory::make_sharpshooter, "Sharpshooter" },
         { UnitFactory::make_medic,        "Medic"        },
         { UnitFactory::make_swashbuckler, "Swashbuckler" },
     };
-
     for (auto& e : entries) {
         campaign.roster.push_back(e.factory(0, 0));
         campaign.names.push_back(e.name);
@@ -113,6 +227,7 @@ bool game::load_level(const std::string& path) {
 void game::end_mission() {
     write_back_to_roster();
     campaign.mission_index++;
+    save_campaign("save.json");
 }
 
 void game::write_back_to_roster() {
@@ -140,6 +255,8 @@ void game::reset_mission_state() {
     state = GameState{};
 }
 
+// ─── visibility ───────────────────────────────────────────────────────────────
+
 void game::update_visibility() {
     if (state.players.empty()) return;
 
@@ -152,12 +269,11 @@ void game::update_visibility() {
 
         for (auto& player : state.players) {
             if (!player.is_alive()) continue;
-            int px = player.get_x_pos();
-            int py = player.get_y_pos();
-            int sr = player.get_sight_range();
+            int px   = player.get_x_pos();
+            int py   = player.get_y_pos();
+            int sr   = player.get_sight_range();
             int dist = std::max(abs(ex - px), abs(ey - py));
 
-            // use each player's own sight range but share the result
             if (dist <= sr && has_los(px, py, ex, ey, state.map)) {
                 state.spotted[i] = true;
                 break;
@@ -166,10 +282,11 @@ void game::update_visibility() {
     }
 }
 
+// ─── win conditions ───────────────────────────────────────────────────────────
+
 void game::check_win_conditions() {
     if (state.win_state != WinState::ONGOING) return;
 
-    // defeat — all players dead
     bool any_alive = false;
     for (auto& p : state.players)
         if (p.is_alive()) { any_alive = true; break; }
@@ -178,31 +295,46 @@ void game::check_win_conditions() {
         return;
     }
 
-    // check if Vane is dead — assume alive until proven otherwise
-    bool vane_dead = false;
-    for (auto& e : state.enemies) {
-        if (e.get_type() == EnemyType::CAPTAIN && !e.is_alive()) {
-            vane_dead = true;
-            break;
+    const auto& objectives = state.map.get_objectives();
+    if (objectives.empty()) return;
+
+    for (auto& obj : objectives) {
+        bool met = false;
+
+        if (obj.type == Objective::Type::KILL_UNIT) {
+            bool any_target_alive = false;
+            for (auto& e : state.enemies) {
+                if (!e.is_alive()) continue;
+                if (obj.target == "captain" && e.get_type() == EnemyType::CAPTAIN)
+                    any_target_alive = true;
+                else if (obj.target == "soldier" && e.get_type() == EnemyType::SOLDIER)
+                    any_target_alive = true;
+                else if (obj.target == "guard" && e.get_type() == EnemyType::GUARD)
+                    any_target_alive = true;
+            }
+            met = !any_target_alive;
         }
+        else if (obj.type == Objective::Type::HOLD_TILE) {
+            for (auto& p : state.players) {
+                if (!p.is_alive()) continue;
+                if (state.map.is_objective(p.get_x_pos(), p.get_y_pos()))
+                    met = true;
+            }
+        }
+
+        if (!met) return;
     }
 
-    if (!vane_dead) return;
-
-    // Vane is dead — check if any player holds an objective tile
-    for (auto& p : state.players) {
-        if (!p.is_alive()) continue;
-        if (state.map.is_objective(p.get_x_pos(), p.get_y_pos())) {
-            state.win_state = WinState::VICTORY;
-            end_mission();
-            return;
-        }
-    }
+    state.win_state = WinState::VICTORY;
+    end_mission();
 }
+
+// ─── update / draw ────────────────────────────────────────────────────────────
 
 void game::update(float dt) {
     if (state.win_state != WinState::ONGOING) {
         if (state.win_state == WinState::DEFEAT && IsKeyPressed(KEY_R)) {
+            std::remove("save.json");
             campaign = CampaignState{};
             init_campaign();
             start_mission();
@@ -254,9 +386,9 @@ void game::update(float dt) {
         check_win_conditions();
     }
 
-    if (state.mode == ActionMode::SHOOT    ||
-        state.mode == ActionMode::MELEE    ||
-        state.mode == ActionMode::HEAL     ||
+    if (state.mode == ActionMode::SHOOT     ||
+        state.mode == ActionMode::MELEE     ||
+        state.mode == ActionMode::HEAL      ||
         state.mode == ActionMode::DIRTY_TRICK)
         SetMouseCursor(MOUSE_CURSOR_CROSSHAIR);
     else

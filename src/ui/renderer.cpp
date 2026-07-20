@@ -149,21 +149,37 @@ void Renderer::draw_tooltip(const std::string& ability_id, int bx, int by) const
 // ─── objectives ───────────────────────────────────────────────────────────────
 
 void Renderer::draw_objectives(const GameState& state) const {
-    // check conditions
-    bool vane_dead = false;
-    for (auto& e : state.enemies)
-        if (e.get_type() == EnemyType::CAPTAIN && !e.is_alive())
-            vane_dead = true;
+    const auto& objectives = state.map.get_objectives();
+    if (objectives.empty()) return;
 
-    bool obj_held = false;
-    for (auto& p : state.players)
-        if (p.is_alive() && state.map.is_objective(p.get_x_pos(), p.get_y_pos()))
-            obj_held = true;
+    auto is_met = [&](const Objective& obj) -> bool {
+        if (obj.type == Objective::Type::KILL_UNIT) {
+            for (auto& e : state.enemies) {
+                if (!e.is_alive()) continue;
+                if (obj.target == "captain" && e.get_type() == EnemyType::CAPTAIN)
+                    return false;
+                if (obj.target == "soldier" && e.get_type() == EnemyType::SOLDIER)
+                    return false;
+                if (obj.target == "guard"   && e.get_type() == EnemyType::GUARD)
+                    return false;
+            }
+            return true;
+        }
+        if (obj.type == Objective::Type::HOLD_TILE) {
+            for (auto& p : state.players) {
+                if (!p.is_alive()) continue;
+                if (state.map.is_objective(p.get_x_pos(), p.get_y_pos()))
+                    return true;
+            }
+            return false;
+        }
+        return false;
+    };
 
     int panel_x = 8;
     int panel_y = 8;
     int panel_w = 200;
-    int panel_h = 68;
+    int panel_h = 16 + (int)objectives.size() * 20 + 8;
 
     DrawRectangle(panel_x, panel_y, panel_w, panel_h,
                   ColorFromNormalized({0.08f, 0.05f, 0.02f, 0.88f}));
@@ -173,17 +189,15 @@ void Renderer::draw_objectives(const GameState& state) const {
     DrawText("Objectives", panel_x + 8, panel_y + 6, 13,
              Color{200, 170, 100, 255});
 
-    // objective 1 — kill Vane
-    Color c1 = vane_dead ? Color{80, 180, 80, 255} : Color{180, 180, 180, 255};
-    const char* check1 = vane_dead ? "[x]" : "[ ]";
-    DrawText(check1,              panel_x + 8,  panel_y + 26, 12, c1);
-    DrawText("Kill Captain Vane", panel_x + 34, panel_y + 26, 12, c1);
-
-    // objective 2 — hold the quarters
-    Color c2 = obj_held ? Color{80, 180, 80, 255} : Color{180, 180, 180, 255};
-    const char* check2 = obj_held ? "[x]" : "[ ]";
-    DrawText(check2,                 panel_x + 8,  panel_y + 46, 12, c2);
-    DrawText("Secure the quarters", panel_x + 34, panel_y + 46, 12, c2);
+    int line_y = panel_y + 26;
+    for (auto& obj : objectives) {
+        bool        met   = is_met(obj);
+        Color       c     = met ? Color{80, 180, 80, 255} : Color{180, 180, 180, 255};
+        const char* check = met ? "[x]" : "[ ]";
+        DrawText(check,             panel_x + 8,  line_y, 12, c);
+        DrawText(obj.label.c_str(), panel_x + 34, line_y, 12, c);
+        line_y += 20;
+    }
 }
 
 // ─── camera ───────────────────────────────────────────────────────────────────
