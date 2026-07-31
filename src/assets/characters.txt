@@ -1,13 +1,15 @@
 Players
 
-Bosun 1 - Mobility Brawler
+Sebastian "The Wake" Holt — Bosun, English veteran
 Meele
 Rush
 Charge
 
-Idea is for him to be able to rush in, secure a kill, then rush out (if planned appropriatly)
+Bio: Sebastian Holt has served on six ships under six captains. Five of them were worth following, the sixth not so much. He joined your mutiny not out of anger or ambition but professional standards, Vane simply isn't good enough. He's watching to see if anyone else is.
+Goal: Find a captain worth serving again.
 
-Swashbuckler 1 - Gambler
+
+Aurelio "The House" Salazar — Swashbuckler, Cuban gambler
 Shoot
 Meele
 Trickshot
@@ -15,20 +17,31 @@ Trickshot
 Idea is to have a risk vs reward playstyle. Can go crazy but abilities can downsides/leave you exposed
 
 
-Medic 1 - Medic
+Llewellyn "The Dandy" Rhys — Medic, Welsh minor noble
 Shoot
 Meele
 Heal
 
-Pretty generic support character, shitty damage but does the job he needs to
+Bio: The third son of a minor Welsh noble house, he journeys to the Caribbean with money and a vauge goal to make something of himself. He was captured by Vane within six months and has been the ship's unwilling surgeon ever since. He's terrible at almost everything except medicine, at which he is quietly exceptional.
+Goal: Earn the respect he was never given at home
 
-Sharpshooter 1 - Sharpshooter
+Lazarus "The Hanged Man" Graves — Sharpshooter, American colonial, survived a hanging
 Shoot
 Meele
 Overwatch
 Aimed Shot
 
+Bio: Lazarus Graves was hanged in the American colonies for his part in a botched burglary. He lucked out, the rope broke and he was able to make a hasty exit. His former crew gave him up to save themselves. He's been moving south ever since, joining Vane's crew because the ship was leaving and he needed to get the fuck outta dodge. He doesn't trust easy after being left to die
+Goal: Stop running accept that death is coming regardless and make the time he has left worth something.
+
 Pretty generic Sharpshooter, you do good damage from a distance
+
+5. French Duelist (glass cannon)
+6. Cowboy (ranged)
+7. Shaman (Support closer to buffs/debuffs with a heal)
+8. Dude with anchor (tank)
+9. The Choir or saved sacrifice (tank-ish, prolly have a heal)
+10. Catholic (Wyrd reconstruction healing)
 
 
 Enemies

@@ -17,14 +17,21 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
     : config(cfg)
     , campaign()
     , state()
+    , world()
+    , mode(GameMode::TITLE)
     , input(cfg)
+    , world_input(cfg)
     , turns()
     , ai()
     , renderer(cfg)
+    , world_manager()
     , level_dir(level_dir)
 {
     init_campaign();
     start_mission();
+    // The mutiny mission is now sitting loaded in `state`, waiting for
+    // mode to flip to TACTICAL. init_world() is only called later, once
+    // that mission is won — see the VICTORY branch in update().
 }
 
 // ─── enemy defs ───────────────────────────────────────────────────────────────
@@ -56,7 +63,6 @@ void game::load_enemy_defs(const std::string& path) {
         std::string obj = src.substr(obj_start, p - obj_start);
         search = p;
 
-        // skip the outer array wrapper
         if (obj.find("\"enemies\"") != std::string::npos) continue;
 
         auto jstr = [&](const std::string& key, const std::string& def) -> std::string {
@@ -233,6 +239,50 @@ void game::init_campaign() {
     }
 }
 
+// ─── world ────────────────────────────────────────────────────────────────────
+
+void game::init_world(const std::string& start_location) {
+    world = WorldState{};
+    world.terrain.assign(world.grid_rows,
+        std::vector<TerrainType>(world.grid_cols, TerrainType::DEEP_SEA));
+    world.fog.assign(world.grid_rows,
+        std::vector<bool>(world.grid_cols, true));
+    world_manager.init(world, start_location);
+    renderer.update_world_camera(world.ship_col, world.ship_row);
+}
+
+void game::update_world(float dt) {
+    auto action = world_input.poll(world, renderer.get_world_camera());
+    if (!action.has_value()) return;
+
+    switch (action->intent) {
+        case WorldIntent::MOVE_SHIP:
+            if (world_manager.move_ship(world, action->col, action->row)) {
+                renderer.update_world_camera(world.ship_col, world.ship_row);
+            }
+            if (world_manager.check_ship_encounter(world)) {
+                mode = GameMode::TACTICAL;
+                start_mission();
+            }
+            break;
+        case WorldIntent::ENTER_PORT:
+            world_manager.enter_port(world, action->index);
+            mode = GameMode::PORT;
+            break;
+        case WorldIntent::LEAVE_PORT:
+            world_manager.leave_port(world);
+            mode = GameMode::WORLD_MAP;
+            break;
+        case WorldIntent::END_TURN:
+            world_manager.advance_day(world);
+            break;
+        default:
+            break;
+    }
+}
+
+// ─── mission lifecycle ────────────────────────────────────────────────────────
+
 void game::start_mission() {
     reset_mission_state();
 
@@ -403,10 +453,22 @@ void game::check_win_conditions() {
 // ─── update / draw ────────────────────────────────────────────────────────────
 
 void game::update(float dt) {
-
-    if (state.show_title) {
+    if (mode == GameMode::TITLE) {
         if (IsKeyPressed(KEY_ENTER)) {
-            state.show_title = false;
+            mode = GameMode::TACTICAL;
+        }
+        return;
+    }
+
+    if (mode == GameMode::WORLD_MAP) {
+        update_world(dt);
+        return;
+    }
+
+    if (mode == GameMode::PORT) {
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            world_manager.leave_port(world);
+            mode = GameMode::WORLD_MAP;
         }
         return;
     }
@@ -418,6 +480,12 @@ void game::update(float dt) {
             enemy_defs.clear();
             init_campaign();
             start_mission();
+            mode = GameMode::TACTICAL;
+        }
+        if (state.win_state == WinState::VICTORY && IsKeyPressed(KEY_ENTER)) {
+            mode = GameMode::WORLD_MAP;
+            init_world("Nassau");
+            reset_mission_state();
         }
         return;
     }
@@ -476,7 +544,7 @@ void game::update(float dt) {
 }
 
 void game::draw() {
-    renderer.draw_frame(state);
+    renderer.draw_frame(state, world, mode);
 }
 
 void game::run() {

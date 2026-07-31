@@ -4,6 +4,7 @@
 #include "../combat/combat.h"
 #include "../core/types.h"
 #include "../units/enemy.h"
+#include "../world/world_state.h"
 #include "icon_registry.h"
 #include "raylib.h"
 #include <unordered_map>
@@ -14,12 +15,19 @@ class Renderer {
 public:
     Renderer(const AppConfig& config);
     ~Renderer();
+
+    void draw_frame(const GameState& state, const WorldState& world, GameMode mode);
+
     void update_camera(int player_x, int player_y, int map_w);
-    void draw_frame(const GameState& state);
     const Camera2D& get_camera() const;
+
+    void update_world_camera(int ship_col, int ship_row);
+    const Camera2D& get_world_camera() const;
+
 private:
     const AppConfig& config;
-    Camera2D         camera = { {0,0}, {0,0}, 0.0f, 1.0f };
+    Camera2D         camera       = { {0,0}, {0,0}, 0.0f, 1.0f };
+    Camera2D         world_camera = { {0,0}, {0,0}, 0.0f, 1.0f };
     IconRegistry     icons;
     Texture2D        hud_texture = {};
     Texture2D        tileset     = {};
@@ -44,6 +52,16 @@ private:
     void draw_tooltip(const std::string& ability_id, int bx, int by) const;
     void draw_objectives(const GameState& state) const;
     void draw_title_screen() const;
+
+    // world map
+    Color terrain_color(TerrainType type) const;
+    Color faction_color(FactionType faction) const;
+    void draw_world(const WorldState& world);
+    void draw_world_terrain(const WorldState& world);
+    void draw_world_ports(const WorldState& world);
+    void draw_world_ships(const WorldState& world);
+    void draw_world_player_ship(const WorldState& world);
+    void draw_world_hud(const WorldState& world);
 
     static const int BAR_HEIGHT    = 100;
     static const int BTN_W         = 90;

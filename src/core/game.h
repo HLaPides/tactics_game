@@ -7,6 +7,9 @@
 #include "../ui/renderer.h"
 #include "../units/enemy.h"
 #include "../core/types.h"
+#include "../world/world_state.h"
+#include "../world/world_manager.h"
+#include "../world/world_input.h"
 #include <string>
 #include <vector>
 
@@ -18,10 +21,14 @@ private:
     AppConfig      config;
     CampaignState  campaign;
     GameState      state;
+    WorldState     world;
+    GameMode       mode = GameMode::TITLE;
     InputHandler   input;
+    WorldInput     world_input;
     TurnManager    turns;
     AIController   ai;
     Renderer       renderer;
+    WorldManager   world_manager;
     std::string    level_dir;
 
     struct EnemyDef {
@@ -35,6 +42,7 @@ private:
     void load_enemy_defs(const std::string& path);
 
     void init_campaign();
+    void init_world(const std::string& start_location);
     bool load_level(const std::string& path);
     void start_mission();
     void end_mission();
@@ -45,6 +53,7 @@ private:
 
     void update_visibility();
     void check_win_conditions();
+    void update_world(float dt);
     void update(float dt);
     void draw();
 };

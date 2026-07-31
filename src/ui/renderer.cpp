@@ -34,6 +34,9 @@ Renderer::Renderer(const AppConfig& cfg) : config(cfg) {
     camera.zoom     = 1.0f;
     camera.rotation = 0.0f;
 
+    world_camera.zoom     = 1.0f;
+    world_camera.rotation = 0.0f;
+
     hud_texture = LoadTexture("src/assets/icons/hud.png");
 
     icons.load("shoot",       "src/assets/icons/shoot.png");
@@ -206,31 +209,49 @@ void Renderer::update_camera(int player_x, int player_y, int map_w) {
 
 const Camera2D& Renderer::get_camera() const { return camera; }
 
+void Renderer::update_world_camera(int ship_col, int ship_row) {
+    float tile = (float)config.world_tile_size;
+    world_camera.target = { ship_col * tile + tile / 2.0f, ship_row * tile + tile / 2.0f };
+    world_camera.offset = { config.screen_w / 2.0f, config.grid_h / 2.0f };
+}
+
+const Camera2D& Renderer::get_world_camera() const { return world_camera; }
+
 // ─── draw frame ───────────────────────────────────────────────────────────────
 
-void Renderer::draw_frame(const GameState& state) {
+void Renderer::draw_frame(const GameState& state, const WorldState& world, GameMode mode) {
     BeginDrawing();
 
-    if (state.show_title) {
-        draw_title_screen();
-        EndDrawing();
-        return;
+    switch (mode) {
+        case GameMode::TITLE:
+            draw_title_screen();
+            break;
+
+        case GameMode::WORLD_MAP:
+            draw_world(world);
+            break;
+
+        case GameMode::PORT:
+            ClearBackground(DARKGRAY); // placeholder — port UI not built yet
+            break;
+
+        case GameMode::TACTICAL:
+            ClearBackground(DARKGRAY);
+
+            BeginMode2D(camera);
+            draw_map(state);
+            draw_range_overlay(state);
+            draw_target_highlights(state);
+            draw_units(state);
+            draw_floating_texts(state);
+            EndMode2D();
+
+            draw_attack_preview(state);
+            draw_objectives(state);
+            draw_hud(state);
+            draw_game_over(state);
+            break;
     }
-
-    ClearBackground(DARKGRAY);
-
-    BeginMode2D(camera);
-    draw_map(state);
-    draw_range_overlay(state);
-    draw_target_highlights(state);
-    draw_units(state);
-    draw_floating_texts(state);
-    EndMode2D();
-
-    draw_attack_preview(state);
-    draw_objectives(state);
-    draw_hud(state);
-    draw_game_over(state);
 
     EndDrawing();
 }
@@ -409,7 +430,6 @@ void Renderer::draw_units(const GameState& state) {
             int          tx = e.get_x_pos() * tile_size;
             int          ty = e.get_y_pos() * tile_size;
 
-            // sprite key comes directly from the enemy def
             std::string ekey = e.get_sprite_key();
 
             auto it = enemy_sprites.find(ekey);
@@ -738,7 +758,6 @@ void Renderer::draw_game_over(const GameState& state) {
         DrawText(sub, cx - MeasureText(sub, 20) / 2, cy - 72, 20, LIGHTGRAY);
     }
 
-    // survived text — push down so it doesn't overlap
     const char* turns = TextFormat("Survived %d turn%s",
                                     state.turn_count,
                                     state.turn_count == 1 ? "" : "s");
@@ -773,8 +792,8 @@ void Renderer::draw_game_over(const GameState& state) {
     }
 }
 
+// ─── title screen ─────────────────────────────────────────────────────────────
 
-//Title screen
 void Renderer::draw_title_screen() const {
     int cx = config.screen_w / 2;
     int cy = config.screen_h / 2;
@@ -810,4 +829,129 @@ void Renderer::draw_title_screen() const {
     DrawLine(cx - 200, cy + 120, cx + 200, cy + 120, Color{100, 80, 40, 255});
 
     draw_centered("-- Press Enter --", cy + 140, 14, Color{140, 110, 60, 255});
+}
+
+// ─── world map ────────────────────────────────────────────────────────────────
+
+Color Renderer::terrain_color(TerrainType type) const {
+    switch (type) {
+        case TerrainType::DEEP_SEA:    return Color{ 10,  30,  70, 255 };
+        case TerrainType::SHALLOW_SEA: return Color{ 30,  90, 140, 255 };
+        case TerrainType::LAND:        return Color{ 90, 130,  60, 255 };
+        case TerrainType::PORT:        return Color{ 160, 140,  90, 255 };
+    }
+    return BLACK;
+}
+
+Color Renderer::faction_color(FactionType faction) const {
+    switch (faction) {
+        case FactionType::SPANISH: return Color{ 220, 190,  60, 255 };
+        case FactionType::ENGLISH: return Color{ 200,  40,  40, 255 };
+        case FactionType::FRENCH:  return Color{  70, 100, 220, 255 };
+        case FactionType::PIRATE:  return Color{ 200, 200, 200, 255 };
+        case FactionType::NEUTRAL: return Color{ 140, 140, 140, 255 };
+    }
+    return WHITE;
+}
+
+void Renderer::draw_world_terrain(const WorldState& world) {
+    float tile = (float)config.world_tile_size;
+
+    Vector2 top_left     = GetScreenToWorld2D({ 0, 0 }, world_camera);
+    Vector2 bottom_right = GetScreenToWorld2D(
+        { (float)config.screen_w, (float)config.grid_h }, world_camera);
+
+    int col_start = std::max(0, (int)(top_left.x / tile) - 1);
+    int col_end   = std::min(world.grid_cols - 1, (int)(bottom_right.x / tile) + 1);
+    int row_start = std::max(0, (int)(top_left.y / tile) - 1);
+    int row_end   = std::min(world.grid_rows - 1, (int)(bottom_right.y / tile) + 1);
+
+    for (int r = row_start; r <= row_end; r++) {
+        for (int c = col_start; c <= col_end; c++) {
+            Rectangle rect{ c * tile, r * tile, tile, tile };
+
+            if (world.fog[r][c]) {
+                DrawRectangleRec(rect, Color{ 5, 5, 10, 255 });
+                continue;
+            }
+
+            DrawRectangleRec(rect, terrain_color(world.terrain[r][c]));
+            DrawRectangleLinesEx(rect, 1.0f, Color{ 0, 0, 0, 40 });
+        }
+    }
+}
+
+void Renderer::draw_world_ports(const WorldState& world) {
+    float tile = (float)config.world_tile_size;
+
+    for (const auto& port : world.ports) {
+        if (port.row < 0 || port.row >= (int)world.fog.size()) continue;
+        if (port.col < 0 || port.col >= (int)world.fog[0].size()) continue;
+        if (world.fog[port.row][port.col]) continue;
+
+        Vector2 center{ port.col * tile + tile / 2.0f, port.row * tile + tile / 2.0f };
+
+        DrawCircleV(center, tile * 0.35f, faction_color(port.faction));
+        DrawCircleLines((int)center.x, (int)center.y, tile * 0.35f, BLACK);
+
+        if (port.has_town_hall) {
+            DrawRectangle((int)center.x - 3, (int)(center.y - tile * 0.6f), 6, 6, GOLD);
+        }
+
+        DrawText(port.name.c_str(),
+                  (int)(center.x - MeasureText(port.name.c_str(), 12) / 2),
+                  (int)(center.y + tile * 0.4f),
+                  12, WHITE);
+    }
+}
+
+void Renderer::draw_world_ships(const WorldState& world) {
+    float tile = (float)config.world_tile_size;
+
+    for (const auto& ship : world.ships) {
+        if (ship.is_player) continue;
+        if (ship.row < 0 || ship.row >= (int)world.fog.size()) continue;
+        if (ship.col < 0 || ship.col >= (int)world.fog[0].size()) continue;
+        if (world.fog[ship.row][ship.col]) continue;
+
+        Vector2 center{ ship.col * tile + tile / 2.0f, ship.row * tile + tile / 2.0f };
+        DrawPoly(center, 3, tile * 0.3f, 0.0f, faction_color(ship.faction));
+        DrawPolyLines(center, 3, tile * 0.3f, 0.0f, BLACK);
+    }
+}
+
+void Renderer::draw_world_player_ship(const WorldState& world) {
+    float tile = (float)config.world_tile_size;
+    Vector2 center{
+        world.ship_col * tile + tile / 2.0f,
+        world.ship_row * tile + tile / 2.0f
+    };
+
+    DrawPoly(center, 3, tile * 0.4f, 0.0f, WHITE);
+    DrawPolyLines(center, 3, tile * 0.4f, 0.0f, BLACK);
+}
+
+void Renderer::draw_world_hud(const WorldState& world) {
+    std::string line =
+        "Day " + std::to_string(world.day) +
+        "   Gold " + std::to_string(world.gold) +
+        "   Supplies " + std::to_string(world.supplies) +
+        "   Rep " + std::to_string(world.reputation);
+
+    DrawRectangle(0, 0, config.screen_w, 28, Color{ 0, 0, 0, 160 });
+    DrawText(line.c_str(), 10, 6, 16, WHITE);
+    DrawText("SPACE: end turn", config.screen_w - 150, 6, 14, LIGHTGRAY);
+}
+
+void Renderer::draw_world(const WorldState& world) {
+    ClearBackground(Color{ 5, 15, 35, 255 });
+
+    BeginMode2D(world_camera);
+    draw_world_terrain(world);
+    draw_world_ports(world);
+    draw_world_ships(world);
+    draw_world_player_ship(world);
+    EndMode2D();
+
+    draw_world_hud(world);
 }

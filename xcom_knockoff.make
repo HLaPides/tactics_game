@@ -132,6 +132,8 @@ GENERATED += $(OBJDIR)/unit.o
 GENERATED += $(OBJDIR)/ability.o
 GENERATED += $(OBJDIR)/action_executor.o
 GENERATED += $(OBJDIR)/icon_registry.o
+GENERATED += $(OBJDIR)/world_manager.o
+GENERATED += $(OBJDIR)/world_input.o
 
 
 OBJECTS += $(OBJDIR)/main.o
@@ -148,7 +150,8 @@ OBJECTS += $(OBJDIR)/unit.o
 OBJECTS += $(OBJDIR)/ability.o
 OBJECTS   += $(OBJDIR)/action_executor.o
 OBJECTS   += $(OBJDIR)/icon_registry.o
-
+OBJECTS += $(OBJDIR)/world_manager.o
+OBJECTS += $(OBJDIR)/world_input.o
 
 # Rules
 # #############################################
@@ -268,6 +271,14 @@ $(OBJDIR)/icon_registry.o: src/ui/icon_registry.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
+$(OBJDIR)/world_manager.o: src/world/world_manager.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/world_input.o: src/world/world_input.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+	
 -include $(OBJECTS:%.o=%.d)
 ifneq (,$(PCH))
   -include $(PCH_PLACEHOLDER).d

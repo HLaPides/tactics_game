@@ -4,6 +4,8 @@
 
 enum class GamePhase  { PLAYER_TURN, ENEMY_TURN };
 
+enum class GameMode { TITLE, WORLD_MAP, PORT, TACTICAL };
+
 enum class ActionMode {
     NONE,
     SHOOT,
@@ -48,10 +50,11 @@ struct UnitStats {
 };
 
 struct AppConfig {
-    int screen_w  = 1280;
-    int screen_h  = 720;
-    int grid_h    = 620;   // reduced to account for taller HUD
-    int tile_size = 32;
+    int screen_w        = 1280;
+    int screen_h        = 720;
+    int grid_h          = 620;   // reduced to account for taller HUD
+    int tile_size       = 32;
+    int world_tile_size = 64;
 };
 
 namespace UnitPresets {
