@@ -250,20 +250,31 @@ void game::init_world(const std::string& start_location) {
     world_manager.init(world, start_location);
     renderer.update_world_camera(world.ship_col, world.ship_row);
 }
-
 void game::update_world(float dt) {
     auto action = world_input.poll(world, renderer.get_world_camera());
     if (!action.has_value()) return;
 
     switch (action->intent) {
-        case WorldIntent::MOVE_SHIP:
-            if (world_manager.move_ship(world, action->col, action->row)) {
-                renderer.update_world_camera(world.ship_col, world.ship_row);
+        case WorldIntent::MOVE_SHIP: {
+            int idx = world_manager.ship_index_at(world, action->col, action->row);
+            if (idx >= 0) {
+                world.pending_engage_ship = idx;
+            } else {
+                if (world_manager.move_ship(world, action->col, action->row)) {
+                    renderer.update_world_camera(world.ship_col, world.ship_row);
+                }
             }
-            if (world_manager.check_ship_encounter(world)) {
+            break;
+        }
+        case WorldIntent::CONFIRM_ENGAGE:
+            if (world.pending_engage_ship >= 0) {
+                world.pending_engage_ship = -1;
                 mode = GameMode::TACTICAL;
                 start_mission();
             }
+            break;
+        case WorldIntent::CANCEL_ENGAGE:
+            world.pending_engage_ship = -1;
             break;
         case WorldIntent::ENTER_PORT:
             world_manager.enter_port(world, action->index);
@@ -275,6 +286,11 @@ void game::update_world(float dt) {
             break;
         case WorldIntent::END_TURN:
             world_manager.advance_day(world);
+            if (world.pending_ambush) {
+                world.pending_ambush = false;
+                mode = GameMode::TACTICAL;
+                start_mission();
+            }
             break;
         default:
             break;

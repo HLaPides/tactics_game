@@ -14,8 +14,11 @@ enum class WorldIntent {
     OPEN_TOWN_HALL,
     LEAVE_PORT,
     ACCEPT_CONTRACT,
+    CONFIRM_ENGAGE,
+    CANCEL_ENGAGE,
     END_TURN
 };
+
 
 struct WorldAction {
     WorldIntent intent = WorldIntent::NONE;

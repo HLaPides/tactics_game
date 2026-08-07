@@ -11,9 +11,9 @@ public:
 
     // player actions
     bool move_ship(WorldState& state, int target_col, int target_row);
+    int  ship_index_at(const WorldState& state, int col, int row) const;
     void enter_port(WorldState& state, int port_index);
     void leave_port(WorldState& state);
-
     // time
     void advance_day(WorldState& state);
 
@@ -32,4 +32,11 @@ private:
     void build_ports(WorldState& state);
     void place_wandering_ships(WorldState& state);
     void reveal_fog(WorldState& state, int col, int row, int radius);
+
+    // ship AI helpers
+    void pick_new_wander_target(WorldShip& ship);
+    void spawn_ship(WorldState& state, FactionType faction, ShipState role,
+                     int home_col, int home_row);
+
+    static const int SHIPS_PER_FACTION = 3;
 };

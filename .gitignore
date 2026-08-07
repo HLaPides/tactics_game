@@ -410,3 +410,5 @@ Makefile
 external/
 
 src/assets/characters.txt
+
+xcom_knockoff.make

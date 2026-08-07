@@ -1,0 +1,9 @@
+{
+  "mission_index": 1,
+  "roster": [
+    { "name": "Bosun", "dead": false },
+    { "name": "Sharpshooter", "dead": false },
+    { "name": "Medic", "dead": false },
+    { "name": "Swashbuckler", "dead": false }
+  ]
+}

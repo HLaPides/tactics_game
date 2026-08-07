@@ -278,7 +278,7 @@ $(OBJDIR)/world_manager.o: src/world/world_manager.cpp
 $(OBJDIR)/world_input.o: src/world/world_input.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
-	
+	 
 -include $(OBJECTS:%.o=%.d)
 ifneq (,$(PCH))
   -include $(PCH_PLACEHOLDER).d

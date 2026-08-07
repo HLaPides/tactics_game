@@ -26,12 +26,26 @@ struct PortLocation {
     bool         has_town_hall;
 };
 
+enum class ShipState {
+    WANDER,
+    HUNT,
+    FLEE
+};
+
 struct WorldShip {
     std::string  id;
     FactionType  faction;
     int          col;
     int          row;
     bool         is_player;
+
+    ShipState    state         = ShipState::WANDER;
+    int          home_col      = 0;
+    int          home_row      = 0;
+    int          wander_radius = 4;
+    int          target_col    = 0;
+    int          target_row    = 0;
+    int          detect_radius = 3;
 };
 
 struct Contract {
@@ -86,5 +100,7 @@ struct WorldState {
     std::vector<Contract> contracts;
 
     // which port the player is currently in (-1 = at sea)
-    int current_port = -1;
+    int  current_port        = -1;
+    bool pending_ambush       = false;
+    int  pending_engage_ship  = -1;
 };

@@ -12,6 +12,14 @@ int WorldInput::mouse_world_row(Vector2 mouse, const Camera2D& cam) const {
 
 std::optional<WorldAction> WorldInput::poll(const WorldState& state,
                                              const Camera2D& cam) {
+    if (state.pending_engage_ship >= 0) {
+        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_Y))
+            return WorldAction{ WorldIntent::CONFIRM_ENGAGE };
+        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_N))
+            return WorldAction{ WorldIntent::CANCEL_ENGAGE };
+        return std::nullopt;
+    }
+
     if (IsKeyPressed(KEY_SPACE)) return WorldAction{ WorldIntent::END_TURN };
 
     if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return std::nullopt;

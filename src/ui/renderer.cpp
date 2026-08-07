@@ -943,6 +943,44 @@ void Renderer::draw_world_hud(const WorldState& world) {
     DrawText("SPACE: end turn", config.screen_w - 150, 6, 14, LIGHTGRAY);
 }
 
+// ─── confirm prompt ───────────────────────────────────────────────────────────
+
+void Renderer::draw_world_confirm_prompt(const WorldState& world) {
+    if (world.pending_engage_ship < 0) return;
+    if (world.pending_engage_ship >= (int)world.ships.size()) return;
+
+    const auto& ship = world.ships[world.pending_engage_ship];
+
+    const char* faction_name = "Unknown";
+    switch (ship.faction) {
+        case FactionType::SPANISH: faction_name = "Spanish";  break;
+        case FactionType::ENGLISH: faction_name = "English";  break;
+        case FactionType::FRENCH:  faction_name = "French";   break;
+        case FactionType::PIRATE:  faction_name = "Pirate";   break;
+        case FactionType::NEUTRAL: faction_name = "Unmarked"; break;
+    }
+
+    int panel_w = 360;
+    int panel_h = 120;
+    int px = config.screen_w / 2 - panel_w / 2;
+    int py = config.screen_h / 2 - panel_h / 2;
+
+    DrawRectangle(0, 0, config.screen_w, config.screen_h,
+                  ColorFromNormalized({0.0f, 0.0f, 0.0f, 0.5f}));
+
+    DrawRectangle(px, py, panel_w, panel_h,
+                  ColorFromNormalized({0.08f, 0.05f, 0.02f, 0.95f}));
+    DrawRectangleLines(px, py, panel_w, panel_h, Color{140, 110, 70, 255});
+
+    const char* line1 = TextFormat("A %s vessel is ahead.", faction_name);
+    DrawText(line1, px + panel_w/2 - MeasureText(line1, 18)/2, py + 18, 18,
+             Color{220, 200, 160, 255});
+
+    const char* line2 = "Engage? [Enter] Yes   [Esc] No";
+    DrawText(line2, px + panel_w/2 - MeasureText(line2, 15)/2, py + 60, 15,
+             Color{160, 140, 90, 255});
+}
+
 void Renderer::draw_world(const WorldState& world) {
     ClearBackground(Color{ 5, 15, 35, 255 });
 
@@ -954,4 +992,5 @@ void Renderer::draw_world(const WorldState& world) {
     EndMode2D();
 
     draw_world_hud(world);
+    draw_world_confirm_prompt(world);
 }
