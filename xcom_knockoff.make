@@ -134,7 +134,7 @@ GENERATED += $(OBJDIR)/action_executor.o
 GENERATED += $(OBJDIR)/icon_registry.o
 GENERATED += $(OBJDIR)/world_manager.o
 GENERATED += $(OBJDIR)/world_input.o
-
+GENERATED += $(OBJDIR)/port_input.o
 
 OBJECTS += $(OBJDIR)/main.o
 OBJECTS += $(OBJDIR)/game.o
@@ -152,6 +152,7 @@ OBJECTS   += $(OBJDIR)/action_executor.o
 OBJECTS   += $(OBJDIR)/icon_registry.o
 OBJECTS += $(OBJDIR)/world_manager.o
 OBJECTS += $(OBJDIR)/world_input.o
+OBJECTS   += $(OBJDIR)/port_input.o
 
 # Rules
 # #############################################
@@ -276,6 +277,10 @@ $(OBJDIR)/world_manager.o: src/world/world_manager.cpp
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
 $(OBJDIR)/world_input.o: src/world/world_input.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+
+$(OBJDIR)/port_input.o: src/world/port_input.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 	 

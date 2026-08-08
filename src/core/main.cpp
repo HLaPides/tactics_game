@@ -4,7 +4,8 @@
 
 int main() {
     AppConfig config;
-    InitWindow(config.screen_w, config.screen_h, "Xcom Knockoff");
+    InitWindow(config.screen_w, config.screen_h, "Mutiny");
+    SetExitKey(KEY_NULL); 
     PollInputEvents();
 
     game game("levels", config);

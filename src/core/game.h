@@ -10,6 +10,7 @@
 #include "../world/world_state.h"
 #include "../world/world_manager.h"
 #include "../world/world_input.h"
+#include "../world/port_input.h"
 #include <string>
 #include <vector>
 
@@ -25,6 +26,7 @@ private:
     GameMode       mode = GameMode::TITLE;
     InputHandler   input;
     WorldInput     world_input;
+    PortInput      port_input;
     TurnManager    turns;
     AIController   ai;
     Renderer       renderer;

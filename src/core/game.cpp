@@ -21,6 +21,7 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
     , mode(GameMode::TITLE)
     , input(cfg)
     , world_input(cfg)
+    , port_input(cfg)
     , turns()
     , ai()
     , renderer(cfg)
@@ -29,9 +30,6 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
 {
     init_campaign();
     start_mission();
-    // The mutiny mission is now sitting loaded in `state`, waiting for
-    // mode to flip to TACTICAL. init_world() is only called later, once
-    // that mission is won — see the VICTORY branch in update().
 }
 
 // ─── enemy defs ───────────────────────────────────────────────────────────────
@@ -158,17 +156,27 @@ bool game::load_campaign(const std::string& path) {
     std::vector<std::string> names;
     std::vector<bool>        dead_flags;
 
-    size_t search = 0;
-    while (true) {
-        size_t obj = src.find('{', search);
-        if (obj == std::string::npos) break;
-        size_t end = src.find('}', obj);
-        if (end == std::string::npos) break;
-        std::string entry = src.substr(obj, end - obj + 1);
-        search = end + 1;
+    size_t roster_pos = src.find("\"roster\"");
+    if (roster_pos == std::string::npos) return false;
+    size_t arr_start = src.find('[', roster_pos);
+    if (arr_start == std::string::npos) return false;
+    size_t arr_end = src.find(']', arr_start);
 
-        if (entry.find("mission_index") != std::string::npos) continue;
-        if (entry.find("roster")        != std::string::npos) continue;
+    size_t search = arr_start + 1;
+    while (true) {
+        size_t obj_start = src.find('{', search);
+        if (obj_start == std::string::npos) break;
+        if (arr_end != std::string::npos && obj_start > arr_end) break;
+
+        int    depth = 1;
+        size_t p     = obj_start + 1;
+        while (p < src.size() && depth > 0) {
+            if (src[p] == '{') depth++;
+            else if (src[p] == '}') depth--;
+            p++;
+        }
+        std::string entry = src.substr(obj_start, p - obj_start);
+        search = p;
 
         size_t npos = entry.find("\"name\"");
         if (npos == std::string::npos) continue;
@@ -250,6 +258,7 @@ void game::init_world(const std::string& start_location) {
     world_manager.init(world, start_location);
     renderer.update_world_camera(world.ship_col, world.ship_row);
 }
+
 void game::update_world(float dt) {
     auto action = world_input.poll(world, renderer.get_world_camera());
     if (!action.has_value()) return;
@@ -482,9 +491,35 @@ void game::update(float dt) {
     }
 
     if (mode == GameMode::PORT) {
-        if (IsKeyPressed(KEY_ESCAPE)) {
-            world_manager.leave_port(world);
-            mode = GameMode::WORLD_MAP;
+        auto action = port_input.poll(world);
+        if (action.has_value()) {
+            switch (action->intent) {
+                case PortIntent::LEAVE_PORT:
+                    world_manager.leave_port(world);
+                    mode = GameMode::WORLD_MAP;
+                    break;
+                case PortIntent::SWITCH_TAB:
+                    world.port_tab = action->tab;
+                    break;
+                case PortIntent::ACCEPT_TAVERN_CONTRACT: {
+                    int idx = world_manager.board_contract_index(world, false, action->index);
+                    if (idx >= 0) world_manager.accept_contract(world, idx);
+                    break;
+                }
+                case PortIntent::ACCEPT_TOWN_HALL_CONTRACT: {
+                    int idx = world_manager.board_contract_index(world, true, action->index);
+                    if (idx >= 0) world_manager.accept_contract(world, idx);
+                    break;
+                }
+                case PortIntent::BUY_SUPPLIES:
+                    world_manager.buy_supplies(world, 10, 5);
+                    break;
+                case PortIntent::REPAIR_SHIP:
+                    world_manager.repair_ship(world, 8);
+                    break;
+                default:
+                    break;
+            }
         }
         return;
     }

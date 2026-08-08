@@ -19,7 +19,6 @@ enum class WorldIntent {
     END_TURN
 };
 
-
 struct WorldAction {
     WorldIntent intent = WorldIntent::NONE;
     int         col    = 0;

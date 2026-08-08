@@ -74,17 +74,25 @@ void WorldManager::spawn_ship(WorldState& state, FactionType faction, ShipState 
 void WorldManager::place_wandering_ships(WorldState& state) {
     state.ships.clear();
 
-    // one patrol/wander-role ship near each faction-aligned port that has
-    // a town hall — a rough first pass at "who's got a presence where."
-    // NEUTRAL ports don't spawn a defender; PIRATE ports spawn a rival crew
-    // instead of a "patrol," since pirates don't patrol their own turf.
     for (auto& port : state.ports) {
         if (port.faction == FactionType::NEUTRAL) continue;
 
-        int spawned = 0;
-        for (int i = 0; i < SHIPS_PER_FACTION && spawned < SHIPS_PER_FACTION; i++) {
+        for (int i = 0; i < SHIPS_PER_FACTION; i++) {
+            int offset_col = 2 + (rand() % 3);
+            int offset_row = 2 + (rand() % 3);
+            int sign_c = (rand() % 2 == 0) ? 1 : -1;
+            int sign_r = (rand() % 2 == 0) ? 1 : -1;
+
+            int spawn_col = std::max(0, std::min(state.grid_cols - 1,
+                              port.col + offset_col * sign_c));
+            int spawn_row = std::max(0, std::min(state.grid_rows - 1,
+                              port.row + offset_row * sign_r));
+
             spawn_ship(state, port.faction, ShipState::WANDER, port.col, port.row);
-            spawned++;
+            state.ships.back().col        = spawn_col;
+            state.ships.back().row        = spawn_row;
+            state.ships.back().target_col = spawn_col;
+            state.ships.back().target_row = spawn_row;
         }
     }
 }
@@ -128,6 +136,14 @@ bool WorldManager::move_ship(WorldState& state, int target_col, int target_row) 
     return true;
 }
 
+int WorldManager::ship_index_at(const WorldState& state, int col, int row) const {
+    for (int i = 0; i < (int)state.ships.size(); i++) {
+        if (state.ships[i].is_player) continue;
+        if (state.ships[i].col == col && state.ships[i].row == row) return i;
+    }
+    return -1;
+}
+
 void WorldManager::advance_day(WorldState& state) {
     state.day++;
     state.supplies = std::max(0, state.supplies - 1);
@@ -138,6 +154,9 @@ void WorldManager::advance_day(WorldState& state) {
 void WorldManager::enter_port(WorldState& state, int port_index) {
     if (port_index < 0 || port_index >= (int)state.ports.size()) return;
     state.current_port = port_index;
+    state.port_tab      = PortTab::TAVERN;
+    generate_tavern_contracts(state, port_index);
+    generate_town_hall_contracts(state, port_index);
 }
 
 void WorldManager::leave_port(WorldState& state) {
@@ -146,25 +165,101 @@ void WorldManager::leave_port(WorldState& state) {
 
 // ─── contracts ────────────────────────────────────────────────────────────────
 
+static Contract::Type random_contract_type() {
+    return (rand() % 2 == 0) ? Contract::Type::HIT : Contract::Type::SINK;
+}
+
 void WorldManager::generate_tavern_contracts(WorldState& state, int port_index) {
-    // placeholder — generate 2-3 low tier contracts
+    if (port_index < 0 || port_index >= (int)state.ports.size()) return;
+    const auto& port = state.ports[port_index];
+
+    // clear only tavern-tier offers; town hall offers on the board stay
+    state.contracts.erase(
+        std::remove_if(state.contracts.begin(), state.contracts.end(),
+            [](const Contract& c) { return !c.is_town_hall; }),
+        state.contracts.end());
+
+    int count = 2 + (rand() % 2); // 2-3
+    for (int i = 0; i < count; i++) {
+        Contract c;
+        c.type          = random_contract_type();
+        c.target        = "wandering_ship";
+        c.gold_reward   = 100 + (rand() % 150) + state.day * 2;
+        c.renown_reward = 5 + (rand() % 10);
+        c.expiry_day    = state.day + 10 + (rand() % 10);
+        c.faction       = port.faction;
+        c.is_town_hall  = false;
+        state.contracts.push_back(c);
+    }
 }
 
 void WorldManager::generate_town_hall_contracts(WorldState& state, int port_index) {
-    // placeholder — generate 1-2 high tier faction contracts
+    if (port_index < 0 || port_index >= (int)state.ports.size()) return;
+    const auto& port = state.ports[port_index];
+    if (!port.has_town_hall) return;
+    if (state.reputation < port.rep_requirement) return;
+
+    state.contracts.erase(
+        std::remove_if(state.contracts.begin(), state.contracts.end(),
+            [](const Contract& c) { return c.is_town_hall; }),
+        state.contracts.end());
+
+    int count = 1 + (rand() % 2); // 1-2
+    for (int i = 0; i < count; i++) {
+        Contract c;
+        c.type          = random_contract_type();
+        c.target        = "faction_ship";
+        c.gold_reward   = 300 + (rand() % 300) + state.day * 4;
+        c.renown_reward = 15 + (rand() % 20);
+        c.expiry_day    = state.day + 14 + (rand() % 14);
+        c.faction       = port.faction;
+        c.is_town_hall  = true;
+        state.contracts.push_back(c);
+    }
+}
+
+int WorldManager::board_contract_index(const WorldState& state, bool town_hall, int displayed_index) const {
+    int count = -1;
+    for (int i = 0; i < (int)state.contracts.size(); i++) {
+        if (state.contracts[i].is_town_hall != town_hall) continue;
+        count++;
+        if (count == displayed_index) return i;
+    }
+    return -1;
 }
 
 bool WorldManager::accept_contract(WorldState& state, int contract_index) {
     if (contract_index < 0 || contract_index >= (int)state.contracts.size())
         return false;
+
+    state.active_contracts.push_back(state.contracts[contract_index]);
+    state.contracts.erase(state.contracts.begin() + contract_index);
     return true;
 }
 
 void WorldManager::check_contract_expiry(WorldState& state) {
-    state.contracts.erase(
-        std::remove_if(state.contracts.begin(), state.contracts.end(),
+    state.active_contracts.erase(
+        std::remove_if(state.active_contracts.begin(), state.active_contracts.end(),
             [&](const Contract& c) { return c.expiry_day <= state.day; }),
-        state.contracts.end());
+        state.active_contracts.end());
+}
+
+// ─── port services ─────────────────────────────────────────────────────────────
+
+void WorldManager::buy_supplies(WorldState& state, int amount, int cost_per_unit) {
+    int total = amount * cost_per_unit;
+    if (state.gold < total) return;
+    state.gold     -= total;
+    state.supplies += amount;
+}
+
+void WorldManager::repair_ship(WorldState& state, int cost_per_hp) {
+    int missing = state.ship.max_hull - state.ship.hull;
+    if (missing <= 0) return;
+    int total = missing * cost_per_hp;
+    if (state.gold < total) return;
+    state.gold      -= total;
+    state.ship.hull  = state.ship.max_hull;
 }
 
 // ─── wandering ship AI ─────────────────────────────────────────────────────────
@@ -186,9 +281,6 @@ void WorldManager::update_wandering_ships(WorldState& state) {
         int dist_to_player = std::max(abs(s.col - state.ship_col),
                                        abs(s.row - state.ship_row));
 
-        // detection — only a wandering ship can be pulled into a hunt;
-        // once it notices the player it stays committed (no re-evaluating
-        // back to WANDER mid-chase).
         if (s.state == ShipState::WANDER && dist_to_player <= s.detect_radius) {
             s.state = ShipState::HUNT;
         }
@@ -224,14 +316,6 @@ void WorldManager::update_wandering_ships(WorldState& state) {
             state.pending_ambush = true;
         }
     }
-}
-
-int WorldManager::ship_index_at(const WorldState& state, int col, int row) const {
-    for (int i = 0; i < (int)state.ships.size(); i++) {
-        if (state.ships[i].is_player) continue;
-        if (state.ships[i].col == col && state.ships[i].row == row) return i;
-    }
-    return -1;
 }
 
 bool WorldManager::check_ship_encounter(WorldState& state) {

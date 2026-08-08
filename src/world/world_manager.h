@@ -14,14 +14,20 @@ public:
     int  ship_index_at(const WorldState& state, int col, int row) const;
     void enter_port(WorldState& state, int port_index);
     void leave_port(WorldState& state);
+
     // time
     void advance_day(WorldState& state);
 
     // contracts
     void generate_tavern_contracts(WorldState& state, int port_index);
     void generate_town_hall_contracts(WorldState& state, int port_index);
+    int  board_contract_index(const WorldState& state, bool town_hall, int displayed_index) const;
     bool accept_contract(WorldState& state, int contract_index);
     void check_contract_expiry(WorldState& state);
+
+    // port services
+    void buy_supplies(WorldState& state, int amount, int cost_per_unit);
+    void repair_ship(WorldState& state, int cost_per_hp);
 
     // wandering ships
     void update_wandering_ships(WorldState& state);

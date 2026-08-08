@@ -64,6 +64,9 @@ private:
     void draw_world_hud(const WorldState& world);
     void draw_world_confirm_prompt(const WorldState& world);
 
+    // port
+    void draw_port(const WorldState& world);
+
     static const int BAR_HEIGHT    = 100;
     static const int BTN_W         = 90;
     static const int BTN_H         = 90;

@@ -17,6 +17,13 @@ enum class FactionType {
     PIRATE
 };
 
+enum class PortTab {
+    SHOP,
+    TAVERN,
+    SHIPYARD,
+    TOWN_HALL
+};
+
 struct PortLocation {
     std::string  name;
     FactionType  faction;
@@ -96,11 +103,15 @@ struct WorldState {
     // wandering ships
     std::vector<WorldShip> ships;
 
-    // active contracts
+    // contract board (offers currently displayed at the port you're in)
     std::vector<Contract> contracts;
 
+    // contracts the player has accepted and is actively working
+    std::vector<Contract> active_contracts;
+
     // which port the player is currently in (-1 = at sea)
-    int  current_port        = -1;
-    bool pending_ambush       = false;
-    int  pending_engage_ship  = -1;
+    int     current_port       = -1;
+    PortTab port_tab            = PortTab::TAVERN;
+    bool    pending_ambush      = false;
+    int     pending_engage_ship = -1;
 };

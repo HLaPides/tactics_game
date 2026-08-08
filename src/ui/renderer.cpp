@@ -232,7 +232,7 @@ void Renderer::draw_frame(const GameState& state, const WorldState& world, GameM
             break;
 
         case GameMode::PORT:
-            ClearBackground(DARKGRAY); // placeholder — port UI not built yet
+            draw_port(world);
             break;
 
         case GameMode::TACTICAL:
@@ -993,4 +993,74 @@ void Renderer::draw_world(const WorldState& world) {
 
     draw_world_hud(world);
     draw_world_confirm_prompt(world);
+}
+
+// ─── port ─────────────────────────────────────────────────────────────────────
+
+void Renderer::draw_port(const WorldState& world) {
+    ClearBackground(Color{ 20, 16, 10, 255 });
+
+    const char* tab_names[4] = { "Shop", "Tavern", "Shipyard", "Town Hall" };
+    PortTab     tab_vals[4]  = { PortTab::SHOP, PortTab::TAVERN,
+                                 PortTab::SHIPYARD, PortTab::TOWN_HALL };
+
+    if (world.current_port >= 0 && world.current_port < (int)world.ports.size()) {
+        const auto& port = world.ports[world.current_port];
+        DrawText(port.name.c_str(), 20, 70, 24, Color{200, 160, 60, 255});
+    }
+
+    for (int i = 0; i < 4; i++) {
+        int tx = 20 + i * 148;
+        bool active = (world.port_tab == tab_vals[i]);
+        DrawRectangle(tx, 20, 140, 40,
+                      active ? Color{60, 100, 160, 220} : Color{40, 30, 20, 200});
+        DrawRectangleLines(tx, 20, 140, 40, Color{140, 110, 70, 255});
+        DrawText(tab_names[i], tx + 12, 32, 16,
+                 active ? WHITE : Color{180, 160, 120, 255});
+    }
+
+    DrawText(TextFormat("Gold: %d   Supplies: %d   Rep: %d",
+                         world.gold, world.supplies, world.reputation),
+             config.screen_w - 320, 30, 16, Color{200, 180, 140, 255});
+
+    if (world.port_tab == PortTab::TAVERN || world.port_tab == PortTab::TOWN_HALL) {
+        bool town_hall = (world.port_tab == PortTab::TOWN_HALL);
+        int  row       = 0;
+        for (auto& c : world.contracts) {
+            if (c.is_town_hall != town_hall) continue;
+            int ry = 100 + row * 70;
+            DrawRectangle(60, ry, 500, 60, Color{35, 28, 18, 220});
+            DrawRectangleLines(60, ry, 500, 60, Color{140, 110, 70, 255});
+
+            const char* type_str = c.type == Contract::Type::HIT ? "Hit" :
+                                    c.type == Contract::Type::SINK ? "Sink" : "Escort";
+            DrawText(TextFormat("%s: %s", type_str, c.target.c_str()),
+                     72, ry + 8, 16, Color{220, 200, 160, 255});
+            DrawText(TextFormat("%d gold, %d renown, expires day %d",
+                                 c.gold_reward, c.renown_reward, c.expiry_day),
+                     72, ry + 30, 13, Color{160, 140, 90, 255});
+            row++;
+        }
+        if (town_hall && world.current_port >= 0 &&
+            world.current_port < (int)world.ports.size()) {
+            const auto& port = world.ports[world.current_port];
+            if (!port.has_town_hall) {
+                DrawText("This port has no town hall.", 60, 100, 16, GRAY);
+            } else if (world.reputation < port.rep_requirement) {
+                DrawText(TextFormat("Requires %d reputation.", port.rep_requirement),
+                         60, 100, 16, GRAY);
+            }
+        }
+    } else if (world.port_tab == PortTab::SHOP) {
+        DrawRectangle(60, 100, 220, 50, Color{60, 100, 60, 220});
+        DrawRectangleLines(60, 100, 220, 50, Color{140, 110, 70, 255});
+        DrawText("Buy 10 Supplies (50g)", 72, 118, 15, WHITE);
+    } else if (world.port_tab == PortTab::SHIPYARD) {
+        DrawRectangle(60, 100, 220, 50, Color{60, 60, 100, 220});
+        DrawRectangleLines(60, 100, 220, 50, Color{140, 110, 70, 255});
+        DrawText(TextFormat("Repair Hull (%d/%d)", world.ship.hull, world.ship.max_hull),
+                 72, 118, 15, WHITE);
+    }
+
+    DrawText("[Esc] Leave port", 20, config.screen_h - 30, 14, LIGHTGRAY);
 }
