@@ -24,6 +24,8 @@ public:
     int  board_contract_index(const WorldState& state, bool town_hall, int displayed_index) const;
     bool accept_contract(WorldState& state, int contract_index);
     void check_contract_expiry(WorldState& state);
+    int  find_active_contract_for_ship(const WorldState& state, const std::string& ship_id) const;
+    void resolve_contract(WorldState& state, int active_contract_index);
 
     // port services
     void buy_supplies(WorldState& state, int amount, int cost_per_unit);
@@ -43,6 +45,8 @@ private:
     void pick_new_wander_target(WorldShip& ship);
     void spawn_ship(WorldState& state, FactionType faction, ShipState role,
                      int home_col, int home_row);
+    std::string spawn_contract_ship(WorldState& state, FactionType faction,
+                                      int near_col, int near_row);
 
     static const int SHIPS_PER_FACTION = 3;
 };

@@ -35,7 +35,6 @@ struct PortLocation {
 
 enum class ShipState {
     WANDER,
-    HUNT,
     FLEE
 };
 
@@ -58,17 +57,19 @@ struct WorldShip {
 struct Contract {
     enum class Type { HIT, SINK, ESCORT };
     Type        type;
-    std::string target;       // enemy id or location name
-    std::string destination;  // for escort
+    std::string target;         // display label
+    std::string target_ship_id; // set only once accepted; empty while just an offer
+    std::string destination;    // for escort
     int         gold_reward;
     int         renown_reward;
     int         expiry_day;
     FactionType faction;
-    bool        is_town_hall; // false = tavern
+    bool        is_town_hall;
+    int         origin_port = -1;
 };
 
 struct PlayerShip {
-    std::string name        = "The Mutiny";
+    std::string name        = "";
     int         hull        = 10;
     int         max_hull    = 10;
     int         speed       = 1;   // tiles per turn
@@ -110,8 +111,8 @@ struct WorldState {
     std::vector<Contract> active_contracts;
 
     // which port the player is currently in (-1 = at sea)
-    int     current_port       = -1;
-    PortTab port_tab            = PortTab::TAVERN;
-    bool    pending_ambush      = false;
-    int     pending_engage_ship = -1;
+    int     current_port          = -1;
+    PortTab port_tab               = PortTab::TAVERN;
+    int     pending_engage_ship    = -1;
+    int     pending_contract_index = -1; // index into active_contracts; -1 = none
 };

@@ -915,6 +915,16 @@ void Renderer::draw_world_ships(const WorldState& world) {
         if (world.fog[ship.row][ship.col]) continue;
 
         Vector2 center{ ship.col * tile + tile / 2.0f, ship.row * tile + tile / 2.0f };
+
+        // contract-target ships get a highlighted tile/ring so the
+        // player can visually tell them apart from ordinary wandering ships
+        bool is_contract_target = ship.id.rfind("contract_ship_", 0) == 0;
+        if (is_contract_target) {
+            Rectangle tile_rect{ ship.col * tile, ship.row * tile, tile, tile };
+            DrawRectangleRec(tile_rect, Fade(GOLD, 0.25f));
+            DrawRectangleLinesEx(tile_rect, 2.0f, GOLD);
+        }
+
         DrawPoly(center, 3, tile * 0.3f, 0.0f, faction_color(ship.faction));
         DrawPolyLines(center, 3, tile * 0.3f, 0.0f, BLACK);
     }
@@ -960,6 +970,8 @@ void Renderer::draw_world_confirm_prompt(const WorldState& world) {
         case FactionType::NEUTRAL: faction_name = "Unmarked"; break;
     }
 
+    bool is_contract_target = ship.id.rfind("contract_ship_", 0) == 0;
+
     int panel_w = 360;
     int panel_h = 120;
     int px = config.screen_w / 2 - panel_w / 2;
@@ -970,11 +982,14 @@ void Renderer::draw_world_confirm_prompt(const WorldState& world) {
 
     DrawRectangle(px, py, panel_w, panel_h,
                   ColorFromNormalized({0.08f, 0.05f, 0.02f, 0.95f}));
-    DrawRectangleLines(px, py, panel_w, panel_h, Color{140, 110, 70, 255});
+    DrawRectangleLines(px, py, panel_w, panel_h,
+                        is_contract_target ? GOLD : Color{140, 110, 70, 255});
 
-    const char* line1 = TextFormat("A %s vessel is ahead.", faction_name);
+    const char* line1 = is_contract_target
+        ? TextFormat("Your contract target: %s vessel.", faction_name)
+        : TextFormat("A %s vessel is ahead.", faction_name);
     DrawText(line1, px + panel_w/2 - MeasureText(line1, 18)/2, py + 18, 18,
-             Color{220, 200, 160, 255});
+             is_contract_target ? GOLD : Color{220, 200, 160, 255});
 
     const char* line2 = "Engage? [Enter] Yes   [Esc] No";
     DrawText(line2, px + panel_w/2 - MeasureText(line2, 15)/2, py + 60, 15,

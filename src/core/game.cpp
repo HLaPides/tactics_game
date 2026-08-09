@@ -257,6 +257,7 @@ void game::init_world(const std::string& start_location) {
         std::vector<bool>(world.grid_cols, true));
     world_manager.init(world, start_location);
     renderer.update_world_camera(world.ship_col, world.ship_row);
+    world_initialized = true;
 }
 
 void game::update_world(float dt) {
@@ -275,9 +276,12 @@ void game::update_world(float dt) {
             }
             break;
         }
+        }
         case WorldIntent::CONFIRM_ENGAGE:
             if (world.pending_engage_ship >= 0) {
-                world.pending_engage_ship = -1;
+                const std::string& engaged_id = world.ships[world.pending_engage_ship].id;
+                world.pending_contract_index = world_manager.find_active_contract_for_ship(world, engaged_id);
+                world.pending_engage_ship    = -1;
                 mode = GameMode::TACTICAL;
                 start_mission();
             }
@@ -295,11 +299,6 @@ void game::update_world(float dt) {
             break;
         case WorldIntent::END_TURN:
             world_manager.advance_day(world);
-            if (world.pending_ambush) {
-                world.pending_ambush = false;
-                mode = GameMode::TACTICAL;
-                start_mission();
-            }
             break;
         default:
             break;
@@ -442,6 +441,7 @@ void game::check_win_conditions() {
         if (p.is_alive()) { any_alive = true; break; }
     if (!any_alive) {
         state.win_state = WinState::DEFEAT;
+        world.pending_contract_index = -1; // contract stays active, ship survives
         return;
     }
 
@@ -472,6 +472,10 @@ void game::check_win_conditions() {
     }
 
     state.win_state = WinState::VICTORY;
+    if (world.pending_contract_index >= 0) {
+        world_manager.resolve_contract(world, world.pending_contract_index);
+        world.pending_contract_index = -1;
+    }
     end_mission();
 }
 
@@ -534,14 +538,25 @@ void game::update(float dt) {
             mode = GameMode::TACTICAL;
         }
         if (state.win_state == WinState::VICTORY && IsKeyPressed(KEY_ENTER)) {
-            mode = GameMode::WORLD_MAP;
-            init_world("Nassau");
+        mode = GameMode::WORLD_MAP;
+            if (!world_initialized) {
+                init_world("Nassau");
+            }
             reset_mission_state();
-        }
+    }
         return;
     }
 
     state.floating_texts.update(dt);
+
+    #ifdef DEBUG
+    if (IsKeyPressed(KEY_F1) && state.win_state == WinState::ONGOING) {
+        for (auto& e : state.enemies) {
+            if (e.is_alive()) e.take_damage(9999);
+        }
+        check_win_conditions();
+    }
+#endif
 
     const Camera2D& cam = renderer.get_camera();
     input.update_preview(state, cam);

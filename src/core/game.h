@@ -41,6 +41,7 @@ private:
         UnitStats   stats;
     };
     std::vector<EnemyDef> enemy_defs;
+    bool world_initialized = false;
     void load_enemy_defs(const std::string& path);
 
     void init_campaign();
