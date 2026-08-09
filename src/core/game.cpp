@@ -22,6 +22,7 @@ game::game(const std::string& level_dir, const AppConfig& cfg)
     , input(cfg)
     , world_input(cfg)
     , port_input(cfg)
+    , menu_input(cfg)
     , turns()
     , ai()
     , renderer(cfg)
@@ -276,7 +277,6 @@ void game::update_world(float dt) {
             }
             break;
         }
-        }
         case WorldIntent::CONFIRM_ENGAGE:
             if (world.pending_engage_ship >= 0) {
                 const std::string& engaged_id = world.ships[world.pending_engage_ship].id;
@@ -489,12 +489,72 @@ void game::update(float dt) {
         return;
     }
 
+    if (mode == GameMode::MENU) {
+        auto action = menu_input.poll(campaign, world);
+        if (action.has_value()) {
+            switch (action->intent) {
+                case MenuIntent::CLOSE_MENU:
+                    mode = world.menu_return_mode;
+                    break;
+                case MenuIntent::SWITCH_TAB:
+                    world.menu_tab = action->tab;
+                    break;
+                case MenuIntent::TOGGLE_CREW_EXPAND:
+                    world.menu_expanded_crew =
+                        (world.menu_expanded_crew == action->index) ? -1 : action->index;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return;
+    }
+
     if (mode == GameMode::WORLD_MAP) {
+        if (world.pending_engage_ship < 0) {
+            if (IsKeyPressed(KEY_M)) {
+                world.menu_return_mode = GameMode::WORLD_MAP;
+                world.menu_tab         = MenuTab::OVERVIEW;
+                mode = GameMode::MENU;
+                return;
+            }
+            if (IsKeyPressed(KEY_I)) {
+                world.menu_return_mode = GameMode::WORLD_MAP;
+                world.menu_tab         = MenuTab::INVENTORY;
+                mode = GameMode::MENU;
+                return;
+            }
+            if (IsKeyPressed(KEY_TAB)) {
+                world.menu_return_mode = GameMode::WORLD_MAP;
+                world.menu_tab         = MenuTab::CREW;
+                mode = GameMode::MENU;
+                return;
+            }
+        }
         update_world(dt);
         return;
     }
 
     if (mode == GameMode::PORT) {
+        if (IsKeyPressed(KEY_M)) {
+            world.menu_return_mode = GameMode::PORT;
+            world.menu_tab         = MenuTab::OVERVIEW;
+            mode = GameMode::MENU;
+            return;
+        }
+        if (IsKeyPressed(KEY_I)) {
+            world.menu_return_mode = GameMode::PORT;
+            world.menu_tab         = MenuTab::INVENTORY;
+            mode = GameMode::MENU;
+            return;
+        }
+        if (IsKeyPressed(KEY_TAB)) {
+            world.menu_return_mode = GameMode::PORT;
+            world.menu_tab         = MenuTab::CREW;
+            mode = GameMode::MENU;
+            return;
+        }
+
         auto action = port_input.poll(world);
         if (action.has_value()) {
             switch (action->intent) {
@@ -538,18 +598,18 @@ void game::update(float dt) {
             mode = GameMode::TACTICAL;
         }
         if (state.win_state == WinState::VICTORY && IsKeyPressed(KEY_ENTER)) {
-        mode = GameMode::WORLD_MAP;
+            mode = GameMode::WORLD_MAP;
             if (!world_initialized) {
                 init_world("Nassau");
             }
             reset_mission_state();
-    }
+        }
         return;
     }
 
     state.floating_texts.update(dt);
 
-    #ifdef DEBUG
+#ifdef DEBUG
     if (IsKeyPressed(KEY_F1) && state.win_state == WinState::ONGOING) {
         for (auto& e : state.enemies) {
             if (e.is_alive()) e.take_damage(9999);
@@ -610,7 +670,7 @@ void game::update(float dt) {
 }
 
 void game::draw() {
-    renderer.draw_frame(state, world, mode);
+    renderer.draw_frame(state, world, campaign, mode);
 }
 
 void game::run() {

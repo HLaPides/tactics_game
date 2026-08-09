@@ -4,7 +4,7 @@
 
 enum class GamePhase  { PLAYER_TURN, ENEMY_TURN };
 
-enum class GameMode { TITLE, WORLD_MAP, PORT, TACTICAL };
+enum class GameMode { TITLE, WORLD_MAP, PORT, TACTICAL, MENU };
 
 enum class ActionMode {
     NONE,
@@ -52,13 +52,12 @@ struct UnitStats {
 struct AppConfig {
     int screen_w        = 1280;
     int screen_h        = 720;
-    int grid_h          = 620;   // reduced to account for taller HUD
+    int grid_h          = 620;
     int tile_size       = 32;
     int world_tile_size = 64;
 };
 
 namespace UnitPresets {
-    //Movement, Health, Aim, Defense, Shooting range, shooting damage, meele damage, sight
     inline UnitStats Bosun()        { return {  6, 10,  55,  10,  3,   1,   3,   8 }; }
     inline UnitStats Sharpshooter() { return {  4,  5,  85,   5, 10,   2,   1,  12 }; }
     inline UnitStats Medic()        { return {  4,  6,  60,   5,  4,   1,   1,   8 }; }

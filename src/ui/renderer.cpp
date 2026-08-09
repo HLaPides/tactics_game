@@ -219,7 +219,8 @@ const Camera2D& Renderer::get_world_camera() const { return world_camera; }
 
 // ─── draw frame ───────────────────────────────────────────────────────────────
 
-void Renderer::draw_frame(const GameState& state, const WorldState& world, GameMode mode) {
+void Renderer::draw_frame(const GameState& state, const WorldState& world,
+                           const CampaignState& campaign, GameMode mode) {
     BeginDrawing();
 
     switch (mode) {
@@ -233,6 +234,10 @@ void Renderer::draw_frame(const GameState& state, const WorldState& world, GameM
 
         case GameMode::PORT:
             draw_port(world);
+            break;
+
+        case GameMode::MENU:
+            draw_menu(campaign, world);
             break;
 
         case GameMode::TACTICAL:
@@ -916,8 +921,6 @@ void Renderer::draw_world_ships(const WorldState& world) {
 
         Vector2 center{ ship.col * tile + tile / 2.0f, ship.row * tile + tile / 2.0f };
 
-        // contract-target ships get a highlighted tile/ring so the
-        // player can visually tell them apart from ordinary wandering ships
         bool is_contract_target = ship.id.rfind("contract_ship_", 0) == 0;
         if (is_contract_target) {
             Rectangle tile_rect{ ship.col * tile, ship.row * tile, tile, tile };
@@ -950,7 +953,8 @@ void Renderer::draw_world_hud(const WorldState& world) {
 
     DrawRectangle(0, 0, config.screen_w, 28, Color{ 0, 0, 0, 160 });
     DrawText(line.c_str(), 10, 6, 16, WHITE);
-    DrawText("SPACE: end turn", config.screen_w - 150, 6, 14, LIGHTGRAY);
+    DrawText("SPACE: end turn   M: map menu   I: inventory   TAB: crew",
+             config.screen_w - 420, 6, 14, LIGHTGRAY);
 }
 
 // ─── confirm prompt ───────────────────────────────────────────────────────────
@@ -1078,4 +1082,141 @@ void Renderer::draw_port(const WorldState& world) {
     }
 
     DrawText("[Esc] Leave port", 20, config.screen_h - 30, 14, LIGHTGRAY);
+}
+
+// ─── menu ─────────────────────────────────────────────────────────────────────
+
+void Renderer::draw_menu_tabs(const WorldState& world) {
+    const char* tab_names[5] = { "Overview", "Inventory", "Crew", "Contracts", "Quests" };
+    MenuTab     tab_vals[5]  = { MenuTab::OVERVIEW, MenuTab::INVENTORY, MenuTab::CREW,
+                                 MenuTab::CONTRACTS, MenuTab::QUESTS };
+
+    for (int i = 0; i < 5; i++) {
+        int tx = 20 + i * 148;
+        bool active = (world.menu_tab == tab_vals[i]);
+        DrawRectangle(tx, 20, 140, 40,
+                      active ? Color{60, 100, 160, 220} : Color{40, 30, 20, 200});
+        DrawRectangleLines(tx, 20, 140, 40, Color{140, 110, 70, 255});
+        DrawText(tab_names[i], tx + 12, 32, 16,
+                 active ? WHITE : Color{180, 160, 120, 255});
+    }
+}
+
+void Renderer::draw_menu_overview(const WorldState& world) {
+    int x = 60, y = 90;
+    DrawText("Campaign Overview", x, y, 20, Color{220, 200, 160, 255});
+    y += 40;
+    DrawText(TextFormat("Day: %d", world.day), x, y, 16, Color{200, 180, 140, 255}); y += 24;
+    DrawText(TextFormat("Gold: %d", world.gold), x, y, 16, Color{200, 180, 140, 255}); y += 24;
+    DrawText(TextFormat("Supplies: %d", world.supplies), x, y, 16, Color{200, 180, 140, 255}); y += 24;
+    DrawText(TextFormat("Reputation: %d", world.reputation), x, y, 16, Color{200, 180, 140, 255}); y += 24;
+    DrawText(TextFormat("Ship: %s (%d/%d hull)", world.ship.name.c_str(), world.ship.hull, world.ship.max_hull),
+             x, y, 16, Color{200, 180, 140, 255}); y += 24;
+    DrawText(TextFormat("Active contracts: %d", (int)world.active_contracts.size()),
+             x, y, 16, Color{200, 180, 140, 255});
+}
+
+void Renderer::draw_menu_inventory(const WorldState& world) {
+    int x = 60, y = 90;
+    DrawText("Inventory", x, y, 20, Color{220, 200, 160, 255});
+    y += 40;
+    DrawText(TextFormat("Cargo capacity: %d", world.ship.cargo), x, y, 16, Color{200, 180, 140, 255});
+    y += 30;
+    DrawText("No item system yet — this tab is a placeholder.", x, y, 14, GRAY);
+}
+
+void Renderer::draw_menu_crew(const CampaignState& campaign, const WorldState& world) {
+    int x     = 60;
+    int y     = 90;
+    int row_w = 600;
+
+    if (campaign.roster.empty()) {
+        DrawText("No crew.", x, y, 16, GRAY);
+        return;
+    }
+
+    for (int i = 0; i < (int)campaign.roster.size(); i++) {
+        bool expanded = (world.menu_expanded_crew == i);
+        int  row_h    = expanded ? 200 : 64;
+        bool dead     = campaign.permanently_dead[i];
+
+        Color bg = dead ? Color{40, 20, 20, 220} : Color{35, 28, 18, 220};
+        DrawRectangle(x, y, row_w, row_h, bg);
+        DrawRectangleLines(x, y, row_w, row_h, Color{140, 110, 70, 255});
+
+        const std::string& name = campaign.names[i];
+        DrawText(name.c_str(), x + 12, y + 10, 18,
+                 dead ? Color{160, 80, 80, 255} : Color{220, 200, 160, 255});
+
+        if (dead) {
+            DrawText("KIA", x + row_w - 60, y + 12, 14, Color{200, 60, 60, 255});
+        } else {
+            const unit& u = campaign.roster[i];
+            DrawText(TextFormat("HP %d/%d", u.get_hp(), u.get_max_hp()),
+                     x + row_w - 140, y + 12, 14, Color{180, 160, 120, 255});
+        }
+
+        if (expanded && !dead) {
+            const unit& u = campaign.roster[i];
+            int ey = y + 40;
+            DrawText(TextFormat("Movement: %d", u.get_movement()), x + 12, ey, 14, Color{200, 180, 140, 255});
+            ey += 20;
+            DrawText(TextFormat("Sight range: %d", u.get_sight_range()), x + 12, ey, 14, Color{200, 180, 140, 255});
+            ey += 24;
+            DrawText("Abilities:", x + 12, ey, 14, Color{220, 200, 160, 255});
+            ey += 20;
+            for (auto& ab : u.get_abilities()) {
+                DrawText(ab.get_label().c_str(), x + 24, ey, 13, Color{180, 160, 120, 255});
+                ey += 18;
+            }
+        }
+
+        y += row_h + 8;
+    }
+}
+
+void Renderer::draw_menu_contracts(const WorldState& world) {
+    int x = 60, y = 90;
+
+    if (world.active_contracts.empty()) {
+        DrawText("No active contracts.", x, y, 16, GRAY);
+        return;
+    }
+
+    for (auto& c : world.active_contracts) {
+        DrawRectangle(x, y, 600, 60, Color{35, 28, 18, 220});
+        DrawRectangleLines(x, y, 600, 60, Color{140, 110, 70, 255});
+
+        const char* type_str = c.type == Contract::Type::HIT ? "Hit" :
+                                c.type == Contract::Type::SINK ? "Sink" : "Escort";
+        DrawText(TextFormat("%s: %s", type_str, c.target.c_str()),
+                 x + 12, y + 8, 16, Color{220, 200, 160, 255});
+        DrawText(TextFormat("%d gold, %d renown, expires day %d",
+                             c.gold_reward, c.renown_reward, c.expiry_day),
+                 x + 12, y + 30, 13, Color{160, 140, 90, 255});
+        y += 68;
+    }
+}
+
+void Renderer::draw_menu_quests(const WorldState& world) {
+    int x = 60, y = 90;
+    DrawText("Quests", x, y, 20, Color{220, 200, 160, 255});
+    y += 40;
+    DrawText("No active quests.", x, y, 14, GRAY);
+}
+
+void Renderer::draw_menu(const CampaignState& campaign, const WorldState& world) {
+    ClearBackground(Color{ 18, 14, 9, 255 });
+
+    draw_menu_tabs(world);
+
+    switch (world.menu_tab) {
+        case MenuTab::OVERVIEW:  draw_menu_overview(world);          break;
+        case MenuTab::INVENTORY: draw_menu_inventory(world);         break;
+        case MenuTab::CREW:      draw_menu_crew(campaign, world);    break;
+        case MenuTab::CONTRACTS: draw_menu_contracts(world);         break;
+        case MenuTab::QUESTS:    draw_menu_quests(world);            break;
+    }
+
+    DrawText("[Esc] Close menu", 20, config.screen_h - 30, 14, LIGHTGRAY);
 }

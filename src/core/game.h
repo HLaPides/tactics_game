@@ -11,6 +11,7 @@
 #include "../world/world_manager.h"
 #include "../world/world_input.h"
 #include "../world/port_input.h"
+#include "../ui/menu_input.h"
 #include <string>
 #include <vector>
 
@@ -27,11 +28,13 @@ private:
     InputHandler   input;
     WorldInput     world_input;
     PortInput      port_input;
+    MenuInput      menu_input;
     TurnManager    turns;
     AIController   ai;
     Renderer       renderer;
     WorldManager   world_manager;
     std::string    level_dir;
+    bool           world_initialized = false;
 
     struct EnemyDef {
         std::string id;
@@ -41,7 +44,6 @@ private:
         UnitStats   stats;
     };
     std::vector<EnemyDef> enemy_defs;
-    bool world_initialized = false;
     void load_enemy_defs(const std::string& path);
 
     void init_campaign();

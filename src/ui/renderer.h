@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/game_state.h"
+#include "../core/campaign_state.h"
 #include "../map/map.h"
 #include "../combat/combat.h"
 #include "../core/types.h"
@@ -16,7 +17,8 @@ public:
     Renderer(const AppConfig& config);
     ~Renderer();
 
-    void draw_frame(const GameState& state, const WorldState& world, GameMode mode);
+    void draw_frame(const GameState& state, const WorldState& world,
+                     const CampaignState& campaign, GameMode mode);
 
     void update_camera(int player_x, int player_y, int map_w);
     const Camera2D& get_camera() const;
@@ -66,6 +68,15 @@ private:
 
     // port
     void draw_port(const WorldState& world);
+
+    // menu
+    void draw_menu(const CampaignState& campaign, const WorldState& world);
+    void draw_menu_tabs(const WorldState& world);
+    void draw_menu_overview(const WorldState& world);
+    void draw_menu_inventory(const WorldState& world);
+    void draw_menu_crew(const CampaignState& campaign, const WorldState& world);
+    void draw_menu_contracts(const WorldState& world);
+    void draw_menu_quests(const WorldState& world);
 
     static const int BAR_HEIGHT    = 100;
     static const int BTN_W         = 90;

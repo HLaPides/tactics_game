@@ -1,4 +1,5 @@
 #pragma once
+#include "../core/types.h"
 #include <vector>
 #include <string>
 
@@ -24,12 +25,20 @@ enum class PortTab {
     TOWN_HALL
 };
 
+enum class MenuTab {
+    OVERVIEW,
+    INVENTORY,
+    CREW,
+    CONTRACTS,
+    QUESTS
+};
+
 struct PortLocation {
     std::string  name;
     FactionType  faction;
     int          col;
     int          row;
-    int          rep_requirement; // min reputation to access town hall
+    int          rep_requirement;
     bool         has_town_hall;
 };
 
@@ -57,9 +66,9 @@ struct WorldShip {
 struct Contract {
     enum class Type { HIT, SINK, ESCORT };
     Type        type;
-    std::string target;         // display label
-    std::string target_ship_id; // set only once accepted; empty while just an offer
-    std::string destination;    // for escort
+    std::string target;
+    std::string target_ship_id;
+    std::string destination;
     int         gold_reward;
     int         renown_reward;
     int         expiry_day;
@@ -69,10 +78,10 @@ struct Contract {
 };
 
 struct PlayerShip {
-    std::string name        = "";
+    std::string name        = "The Mutiny";
     int         hull        = 10;
     int         max_hull    = 10;
-    int         speed       = 1;   // tiles per turn
+    int         speed       = 1;
     int         cargo       = 10;
     int         crew_cap    = 6;
     std::string flag        = "pirate";
@@ -80,13 +89,11 @@ struct PlayerShip {
 };
 
 struct WorldState {
-    // grid
     int                                    grid_cols = 80;
     int                                    grid_rows = 40;
     std::vector<std::vector<TerrainType>> terrain;
     std::vector<std::vector<bool>>        fog;
 
-    // player
     int         ship_col    = 0;
     int         ship_row    = 0;
     int         gold        = 500;
@@ -95,24 +102,20 @@ struct WorldState {
     int         reputation  = 0;
     PlayerShip  ship;
 
-    // faction relations — indexed by FactionType
-    int faction_relations[5] = { 0, 0, 0, 0, 50 }; // neutral with all, friendly with pirates
+    int faction_relations[5] = { 0, 0, 0, 0, 50 };
 
-    // locations
     std::vector<PortLocation> ports;
+    std::vector<WorldShip>    ships;
+    std::vector<Contract>     contracts;
+    std::vector<Contract>     active_contracts;
 
-    // wandering ships
-    std::vector<WorldShip> ships;
-
-    // contract board (offers currently displayed at the port you're in)
-    std::vector<Contract> contracts;
-
-    // contracts the player has accepted and is actively working
-    std::vector<Contract> active_contracts;
-
-    // which port the player is currently in (-1 = at sea)
     int     current_port          = -1;
     PortTab port_tab               = PortTab::TAVERN;
     int     pending_engage_ship    = -1;
-    int     pending_contract_index = -1; // index into active_contracts; -1 = none
+    int     pending_contract_index = -1;
+
+    // menu
+    MenuTab  menu_tab            = MenuTab::OVERVIEW;
+    int      menu_expanded_crew  = -1;
+    GameMode menu_return_mode    = GameMode::WORLD_MAP;
 };
